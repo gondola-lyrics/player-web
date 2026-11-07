@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   build: {
     target: 'esnext',
-    outDir: out,
+    outDir: 'dist',
     emptyOutDir: true,
     minify: false,
     sourcemap: true,
@@ -35,11 +35,19 @@ export default defineConfig({
       },
       formats: ['es'],
     },
-    rolldownOptions: {
-      external: [/^@gondola-lyrics\/model(?:\/|$)/, /^@bufbuild\/protobuf(?:\/|$)/],
+    rollupOptions: {
+      // Match entry paths so unrelated relative imports are not externalized.
+      external: (id) => {
+        return /^@gondola-lyrics\/model/.test(id) || /^@bufbuild\/protobuf/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'dom')
+      },
+      preserveEntrySignatures: 'allow-extension',
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
+        paths: {
+          [resolve(src, 'core')]: './core.js',
+          [resolve(src, 'dom')]: './dom.js',
+        },
       },
     },
   },
