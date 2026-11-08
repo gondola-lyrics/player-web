@@ -44,9 +44,9 @@
       "types": "./dist/core.d.ts",
       "default": "./dist/core.js"
     },
-    "./dom": {
-      "types": "./dist/dom.d.ts",
-      "default": "./dist/dom.js"
+    "./renderer": {
+      "types": "./dist/renderer.d.ts",
+      "default": "./dist/renderer.js"
     },
     "./package.json": "./package.json"
   },

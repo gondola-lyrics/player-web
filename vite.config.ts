@@ -31,14 +31,14 @@ export default defineConfig({
       entry: {
         index: resolve(src, 'index.ts'),
         core: resolve(src, 'core/index.ts'),
-        dom: resolve(src, 'dom/index.ts'),
+        renderer: resolve(src, 'renderer/index.ts'),
       },
       formats: ['es'],
     },
     rollupOptions: {
       // Match entry paths so unrelated relative imports are not externalized.
       external: (id) => {
-        return /^@gondola-lyrics\/model/.test(id) || /^@bufbuild\/protobuf/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'dom')
+        return /^@gondola-lyrics\/model/.test(id) || /^@bufbuild\/protobuf/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'renderer')
       },
       preserveEntrySignatures: 'allow-extension',
       output: {
@@ -46,7 +46,7 @@ export default defineConfig({
         chunkFileNames: '[name].js',
         paths: {
           [resolve(src, 'core')]: './core.js',
-          [resolve(src, 'dom')]: './dom.js',
+          [resolve(src, 'renderer')]: './renderer.js',
         },
       },
     },
