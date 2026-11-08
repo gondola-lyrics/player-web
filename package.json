@@ -26,6 +26,7 @@
   },
   "scripts": {
     "build": "vite build",
+    "build-change-log": "tsx script/build-change-log.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write src script"
   },
