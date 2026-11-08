@@ -27,6 +27,8 @@
   "scripts": {
     "build": "vite build",
     "build-change-log": "tsx script/build-change-log.ts",
+    "bump-version": "tsx script/bump-version.ts",
+    "release": "tsx script/release.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write src script"
   },
