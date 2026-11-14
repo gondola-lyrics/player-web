@@ -1,4 +1,4 @@
-import type { Lyric } from '@gondola-lyrics/model/runtime'
+import type { EnrichedLyric } from '@gondola-lyrics/model/enriched'
 
 export class Offset {
   private temporary = 0
@@ -21,7 +21,7 @@ export class Offset {
   /**
    * Re-reads the lyric offset when metadata use changes; missing or non-finite values contribute zero.
    */
-  refreshFromMeta(lyric: Lyric, enabled: boolean): void {
+  refreshFromMeta(lyric: EnrichedLyric, enabled: boolean): void {
     const value = enabled ? lyric.meta?.offset : undefined
     this.metadata = typeof value === 'number' && Number.isFinite(value) ? value : 0
   }

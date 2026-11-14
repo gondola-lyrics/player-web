@@ -1,7 +1,7 @@
 import type { RenderChanges, RenderContext } from '../../context'
 import type { RenderMode } from '../types'
 
-import { getContentText } from '@gondola-lyrics/model/runtime'
+import { getEnrichedLineContentText } from '@gondola-lyrics/model/enriched'
 
 export class ListMode implements RenderMode {
   private readonly element: HTMLDivElement
@@ -24,7 +24,7 @@ export class ListMode implements RenderMode {
       this.element.replaceChildren(
         ...currentInfo.lines.map((line) => {
           const row = this.context.document.createElement('div')
-          row.textContent = getContentText(line.content)
+          row.textContent = getEnrichedLineContentText(line.content)
           return row
         }),
       )

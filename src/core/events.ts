@@ -1,4 +1,4 @@
-import type { Line, Lyric } from '@gondola-lyrics/model/runtime'
+import type { EnrichedLine, EnrichedLyric } from '@gondola-lyrics/model/enriched'
 
 export interface CorePlayerEventMap {
   /**
@@ -17,20 +17,20 @@ export interface CorePlayerEventMap {
   /**
    * Emitted after replacing the lyric and resetting the clock; rejected input is represented by an empty lyric.
    */
-  'lyric-update': (lyric: Lyric) => void
+  'lyric-update': (lyric: EnrichedLyric) => void
   /**
    * Requests renderer synchronization after display changes or a full rematch, even if the set stays unchanged.
    *
    * Indexes refer to the loaded lyric; firstIndex is -1 for an empty set.
    * isSeek also covers offset and configuration rematches.
    */
-  'active-lines-update': (lines: Line[], indexes: number[], firstIndex: number, isSeek: boolean) => void
+  'active-lines-update': (lines: EnrichedLine[], indexes: number[], firstIndex: number, isSeek: boolean) => void
   /**
    * Emitted when original-time matches change, independently of display holds, merging and bridging.
    *
    * Offsets apply to matching; indexes refer to the loaded lyric and firstIndex is -1 for an empty set.
    */
-  'current-lines-update': (lines: Line[], indexes: number[], firstIndex: number) => void
+  'current-lines-update': (lines: EnrichedLine[], indexes: number[], firstIndex: number) => void
   /**
    * Emitted only when the combined offset changes during the player's lifetime, after line state is synchronized.
    * Both values are milliseconds added to the playback clock.
