@@ -1,8 +1,9 @@
-import type { Line, Lyric } from '@gondola-lyrics/model/runtime'
+import type { EnrichedLine, EnrichedLyric } from '@gondola-lyrics/model/enriched'
 import type { CorePlayerConfigKeys, CorePlayerConfigManager } from './config'
 import type { CorePlayerEventMap } from './events'
 
-import { LyricStatus, Timing, isTimeRangeActive, makeLyric } from '@gondola-lyrics/model/runtime'
+import { TimingLevel, isTimeInTimeRange } from '@gondola-lyrics/model/common'
+import { EnrichedLyricStatus, makeEnrichedLyric } from '@gondola-lyrics/model/enriched'
 import { SCHEMA_VERSION } from '@gondola-lyrics/model/version'
 import { major, parse } from 'semver'
 
@@ -21,8 +22,8 @@ interface PlaybackClock {
   startedAt: number
 }
 
-const makeEmptyLyric = (): Lyric => {
-  return makeLyric({ status: LyricStatus.VALID, timing: Timing.NONE })
+const makeEmptyLyric = (): EnrichedLyric => {
+  return makeEnrichedLyric({ status: EnrichedLyricStatus.VALID, timing: TimingLevel.NONE })
 }
 
 export class CorePlayer {
@@ -38,14 +39,14 @@ export class CorePlayer {
   private activeLinesUpdatePending = false
   private activeLinesNeedResync = false
 
-  private displayLines: Line[] = []
+  private displayLines: EnrichedLine[] = []
   private displayLineIndexes: number[] = []
 
-  private timeMatchedLines: Line[] = []
+  private timeMatchedLines: EnrichedLine[] = []
   private timeMatchedIndexes: number[] = []
 
   private lastEmittedOffset = 0
-  private lastEmittedCurrentLines: Line[] = []
+  private lastEmittedCurrentLines: EnrichedLine[] = []
   private lastEmittedCurrentIndexes: number[] = []
 
   private nextLineIndex = 0
@@ -88,17 +89,17 @@ export class CorePlayer {
   }
 
   private get hasLineTiming(): boolean {
-    return this.lyric.timing === Timing.LINE || this.lyric.timing === Timing.WORD
+    return this.lyric.timing === TimingLevel.LINE || this.lyric.timing === TimingLevel.WORD
   }
 
-  private bridgeActiveLines(lines: Line[], indexes: number[]): { lines: Line[]; indexes: number[] } {
+  private bridgeActiveLines(lines: EnrichedLine[], indexes: number[]): { lines: EnrichedLine[]; indexes: number[] } {
     const firstIndex = indexes[0]
     const lastIndex = indexes[indexes.length - 1]
     if (!this.config.current.bridgeActive || firstIndex === undefined || lastIndex === undefined || lastIndex - firstIndex + 1 === indexes.length) {
       return { lines, indexes }
     }
 
-    const bridgedLines: Line[] = []
+    const bridgedLines: EnrichedLine[] = []
     const bridgedIndexes: number[] = []
     for (let lineIndex = firstIndex; lineIndex <= lastIndex; lineIndex++) {
       const line = this.lyric.lines[lineIndex]
@@ -161,15 +162,15 @@ export class CorePlayer {
   }
 
   private matchLineState(lyricTime: number): {
-    displayLines: Line[]
+    displayLines: EnrichedLine[]
     displayIndexes: number[]
-    currentLines: Line[]
+    currentLines: EnrichedLine[]
     currentIndexes: number[]
     nextLineIndex: number
   } {
-    const displayLines: Line[] = []
+    const displayLines: EnrichedLine[] = []
     const displayIndexes: number[] = []
-    const currentLines: Line[] = []
+    const currentLines: EnrichedLine[] = []
     const currentIndexes: number[] = []
     let nextLineIndex = this.lyric.lines.length
     if (!this.hasLineTiming || !Number.isFinite(lyricTime)) {
@@ -189,7 +190,7 @@ export class CorePlayer {
         displayLines.push(line)
         displayIndexes.push(lineIndex)
       }
-      if (isTimeRangeActive(line.time, lyricTime)) {
+      if (isTimeInTimeRange(line.time, lyricTime)) {
         currentLines.push(line)
         currentIndexes.push(lineIndex)
       }
@@ -218,9 +219,9 @@ export class CorePlayer {
       return
     }
 
-    const displayLines: Line[] = []
+    const displayLines: EnrichedLine[] = []
     const displayIndexes: number[] = []
-    const currentLines: Line[] = []
+    const currentLines: EnrichedLine[] = []
     const currentIndexes: number[] = []
     let displayChanged = false
     let timeMatchesChanged = false
@@ -237,7 +238,7 @@ export class CorePlayer {
 
     for (const lineIndex of this.timeMatchedIndexes) {
       const line = this.lyric.lines[lineIndex]
-      if (line && isTimeRangeActive(line.time, lyricTime)) {
+      if (line && isTimeInTimeRange(line.time, lyricTime)) {
         currentLines.push(line)
         currentIndexes.push(lineIndex)
       } else {
@@ -260,7 +261,7 @@ export class CorePlayer {
         displayIndexes.push(lineIndex)
         displayChanged = true
       }
-      if (isTimeRangeActive(line.time, lyricTime)) {
+      if (isTimeInTimeRange(line.time, lyricTime)) {
         currentLines.push(line)
         currentIndexes.push(lineIndex)
         timeMatchesChanged = true
@@ -329,7 +330,7 @@ export class CorePlayer {
    * @remarks
    * Invalid parse status, malformed versions or a different schema major load an empty lyric.
    */
-  updateLyric(lyric: Lyric): void {
+  updateLyric(lyric: EnrichedLyric): void {
     if (this.isDisposed || !lyric) {
       return
     }
@@ -337,7 +338,7 @@ export class CorePlayer {
     if (parse(lyric.version)?.major !== SUPPORTED_SCHEMA_MAJOR) {
       console.warn(`[@gondola-lyrics/player] ignored lyric with incompatible version "${lyric.version}", expected major ${SUPPORTED_SCHEMA_MAJOR}`)
       nextLyric = makeEmptyLyric()
-    } else if (lyric.status !== LyricStatus.VALID) {
+    } else if (lyric.status !== EnrichedLyricStatus.VALID) {
       nextLyric = makeEmptyLyric()
     }
 
@@ -468,7 +469,7 @@ export class CorePlayer {
    *
    * @returns The result includes display holds, merging and bridging; untimed lyrics yield empty arrays.
    */
-  matchLinesWithTime(playbackTime: number): { lines: Line[]; index: number[] } {
+  matchLinesWithTime(playbackTime: number): { lines: EnrichedLine[]; index: number[] } {
     const matches = this.matchLineState(playbackTime + this.currentOffset)
     const { lines, indexes } = this.bridgeActiveLines(matches.displayLines, matches.displayIndexes)
     return { lines, index: indexes }
@@ -495,7 +496,7 @@ export class CorePlayer {
   /**
    * Display policies can keep these lines highlighted after their original ranges end.
    */
-  get activeLines(): Line[] {
+  get activeLines(): EnrichedLine[] {
     return this.bridgeActiveLines(this.displayLines, this.displayLineIndexes).lines
   }
 
@@ -517,7 +518,7 @@ export class CorePlayer {
    * Matches original [start, end) ranges at the last synchronization, with the effective offset applied.
    * Unknown ends stay open; display holds, merging and bridging do not affect this set.
    */
-  get currentLines(): Line[] {
+  get currentLines(): EnrichedLine[] {
     return this.timeMatchedLines
   }
 
@@ -538,7 +539,7 @@ export class CorePlayer {
   /**
    * Accepted lyrics retain object identity; call updateLyric after edits to rebuild timing state.
    */
-  get currentInfo(): Lyric {
+  get currentInfo(): EnrichedLyric {
     return this.lyric
   }
 
