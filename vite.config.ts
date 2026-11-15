@@ -38,7 +38,7 @@ export default defineConfig({
     rollupOptions: {
       // Match entry paths so unrelated relative imports are not externalized.
       external: (id) => {
-        return /^@gondola-lyrics\/model/.test(id) || /^@bufbuild\/protobuf/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'renderer')
+        return /^@gondola-lyrics\/model/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'renderer')
       },
       preserveEntrySignatures: 'allow-extension',
       output: {
