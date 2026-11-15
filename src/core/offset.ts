@@ -7,21 +7,21 @@ export class Offset {
   /**
    * Treats non-finite input as zero so it cannot invalidate later clock comparisons.
    */
-  setTemp(value: number): void {
+  setTemp(value: number) {
     this.temporary = Number.isFinite(value) ? value : 0
   }
 
   /**
    * Clears the per-song adjustment while preserving the loaded metadata offset.
    */
-  resetTemp(): void {
+  resetTemp() {
     this.temporary = 0
   }
 
   /**
    * Re-reads the lyric offset when metadata use changes; missing or non-finite values contribute zero.
    */
-  refreshFromMeta(lyric: EnrichedLyric, enabled: boolean): void {
+  refreshFromMeta(lyric: EnrichedLyric, enabled: boolean) {
     const value = enabled ? lyric.meta?.offset : undefined
     this.metadata = typeof value === 'number' && Number.isFinite(value) ? value : 0
   }

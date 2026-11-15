@@ -19,7 +19,7 @@ export class Merger {
   /**
    * Coalesces nearby display ends so clustered lines deactivate together without changing their original ranges.
    */
-  build(lines: EnrichedLine[], mergeWindow: number, mergeLimit: number): void {
+  build(lines: EnrichedLine[], mergeWindow: number, mergeLimit: number) {
     this.lines = lines
     this.mergedEnd = new Array<number>(lines.length)
 

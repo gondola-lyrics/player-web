@@ -59,7 +59,7 @@ export class CorePlayer {
     this.config.event.add('update', this.handleConfigUpdate)
   }
 
-  private handleConfigUpdate = (changedKeys: Set<CorePlayerConfigKeys>): void => {
+  private handleConfigUpdate = (changedKeys: Set<CorePlayerConfigKeys>) => {
     if (this.isDisposed) {
       return
     }
@@ -80,7 +80,7 @@ export class CorePlayer {
     }
   }
 
-  private rebuildDisplayEndTimes(): void {
+  private rebuildDisplayEndTimes() {
     this.lineMerger.build(this.lyric.lines, this.config.current.mergeWindow, this.config.current.mergeLimit)
   }
 
@@ -111,7 +111,7 @@ export class CorePlayer {
     return { lines: bridgedLines, indexes: bridgedIndexes }
   }
 
-  private emitOffsetUpdate(): void {
+  private emitOffsetUpdate() {
     const effectiveOffset = this.currentOffset
     if (this.isDisposed || effectiveOffset === this.lastEmittedOffset) {
       return
@@ -121,12 +121,12 @@ export class CorePlayer {
     this.event.emit('offset-update', effectiveOffset, previousOffset)
   }
 
-  private emitActiveLinesUpdate(needsResync: boolean): void {
+  private emitActiveLinesUpdate(needsResync: boolean) {
     const { lines, indexes } = this.bridgeActiveLines(this.displayLines, this.displayLineIndexes)
     this.event.emit('active-lines-update', lines, indexes, indexes[0] ?? -1, needsResync)
   }
 
-  private emitCurrentLinesUpdate(): void {
+  private emitCurrentLinesUpdate() {
     const lines = this.timeMatchedLines
     const indexes = this.timeMatchedIndexes
     const matchesLastEmission =
@@ -143,7 +143,7 @@ export class CorePlayer {
     this.event.emit('current-lines-update', lines, indexes, indexes[0] ?? -1)
   }
 
-  private flushStateEvents(): void {
+  private flushStateEvents() {
     if (this.isDisposed) {
       return
     }
@@ -198,7 +198,7 @@ export class CorePlayer {
     return { displayLines, displayIndexes, currentLines, currentIndexes, nextLineIndex }
   }
 
-  private rebuildLineState(needsResync: boolean): void {
+  private rebuildLineState(needsResync: boolean) {
     const matches = this.matchLineState(this.lyricTime)
     this.displayLines = matches.displayLines
     this.displayLineIndexes = matches.displayIndexes
@@ -209,12 +209,12 @@ export class CorePlayer {
     this.activeLinesNeedResync = needsResync
   }
 
-  private resyncLineState(): void {
+  private resyncLineState() {
     this.rebuildLineState(true)
     this.flushStateEvents()
   }
 
-  private advanceLineState(lyricTime: number): void {
+  private advanceLineState(lyricTime: number) {
     if (!this.hasLineTiming || !Number.isFinite(lyricTime)) {
       return
     }
@@ -280,7 +280,7 @@ export class CorePlayer {
     }
   }
 
-  private handleTick = (): void => {
+  private handleTick = () => {
     if (!this.clock.running || this.isDisposed) {
       return
     }
@@ -330,7 +330,7 @@ export class CorePlayer {
    * @remarks
    * Invalid parse status, malformed versions or a different schema major load an empty lyric.
    */
-  updateLyric(lyric: EnrichedLyric): void {
+  updateLyric(lyric: EnrichedLyric) {
     if (this.isDisposed || !lyric) {
       return
     }
@@ -369,7 +369,7 @@ export class CorePlayer {
    * @remarks
    * Calling play on a running player pauses it before restarting.
    */
-  play(playbackTime?: number): void {
+  play(playbackTime?: number) {
     if (this.isDisposed) {
       return
     }
@@ -400,7 +400,7 @@ export class CorePlayer {
    * @remarks
    * A completed request emits seek even when the target remains within the same line.
    */
-  seek(playbackTime: number): void {
+  seek(playbackTime: number) {
     if (this.isDisposed || !Number.isFinite(playbackTime)) {
       return
     }
@@ -411,7 +411,7 @@ export class CorePlayer {
    * Freezes the clock and synchronizes both line sets to the frozen time.
    * Repeated calls while paused do not emit another pause event.
    */
-  pause(): void {
+  pause() {
     if (this.isDisposed) {
       return
     }
@@ -423,7 +423,7 @@ export class CorePlayer {
    *
    * Emits dispose once after cleanup and before removing player listeners.
    */
-  dispose(): void {
+  dispose() {
     if (this.isDisposed) {
       return
     }
@@ -454,7 +454,7 @@ export class CorePlayer {
    *
    * @param offset - Add these milliseconds to global and metadata offsets; non-finite values clear the temporary adjustment.
    */
-  updateTempOffset(offset: number): void {
+  updateTempOffset(offset: number) {
     if (this.isDisposed) {
       return
     }
