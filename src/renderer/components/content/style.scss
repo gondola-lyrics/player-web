@@ -1,0 +1,17 @@
+.gondola-content {
+  position: relative;
+  min-width: 0;
+  font-size: calc(1em * var(--gondola-content-scale, 1));
+  line-height: 1.35;
+  opacity: 0.6;
+
+  &[data-active] {
+    opacity: 1;
+  }
+}
+
+.gondola-text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -1,8 +1,9 @@
 import type { CorePlayer } from '@root/core'
 import type { DomRendererConfigKeys, DomRendererConfigManager } from './config'
 import type { Container } from './container'
+import type { DomRendererEventMap } from './events'
 
-export type RendererSource = Readonly<
+export type DomRendererSource = Readonly<
   Pick<CorePlayer, 'currentInfo' | 'currentTime' | 'currentOffset' | 'currentPlaying' | 'activeIndexes' | 'currentIndexes'>
 > & {
   readonly event: Pick<CorePlayer['event'], 'add' | 'remove'>
@@ -13,9 +14,15 @@ export interface RenderContext {
   /**
    * Lyric times compare against currentTime plus currentOffset.
    */
-  readonly player: RendererSource
+  readonly player: DomRendererSource
   readonly config: DomRendererConfigManager
   readonly container: Container
+  /**
+   * Coalesces mode-local input and measurement changes with player updates.
+   */
+  readonly requestUpdate: () => void
+  readonly onLineClick: DomRendererEventMap['line-click']
+  readonly onLineContextMenu: DomRendererEventMap['line-context-menu']
 }
 
 /**

@@ -1,0 +1,35 @@
+.gondola-line {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  padding-block: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: var(--gondola-font-size, 30px);
+  font-family: var(--gondola-font-family, inherit);
+  font-weight: var(--gondola-font-weight, 500);
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+  }
+
+  &[data-active] > .gondola-instrumental {
+    opacity: 1;
+  }
+}
+
+.gondola-backgrounds {
+  --gondola-content-scale: 0.75;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.gondola-instrumental {
+  line-height: 1.35;
+  letter-spacing: 0.3em;
+  opacity: 0.4;
+}

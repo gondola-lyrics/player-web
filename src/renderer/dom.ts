@@ -1,14 +1,14 @@
 import type { DomRendererConfig, DomRendererConfigKeys, DomRendererConfigManager } from './config'
-import type { RenderChanges, RenderContext, RendererSource } from './context'
+import type { DomRendererSource, RenderChanges, RenderContext } from './context'
 import type { DomRendererEventMap } from './events'
 import type { RenderMode } from './modes/types'
 
 import { ConfigManager, Event } from '@root/utils'
 
-import { DEFAULT } from './config'
+import { DEFAULT, validateConfig } from './config'
 import { Container } from './container'
 import { createMode } from './modes'
-import { FrameScheduler } from './scheduler'
+import { UpdateScheduler } from './scheduler'
 
 const RENDER_EVENTS = ['play', 'pause', 'active-lines-update', 'current-lines-update', 'offset-update'] as const
 
@@ -17,7 +17,7 @@ export class DomRenderer {
   readonly event = new Event<DomRendererEventMap>()
 
   private readonly container: Container
-  private readonly scheduler: FrameScheduler
+  private readonly scheduler: UpdateScheduler
   private readonly context: RenderContext
   private mode: RenderMode
   private isDisposed = false
@@ -32,17 +32,27 @@ export class DomRenderer {
    * The player stays independently owned and can drive several renderers.
    */
   constructor(
-    private readonly player: RendererSource,
+    private readonly player: DomRendererSource,
     config?: DomRendererConfig,
   ) {
-    this.config = new ConfigManager(DEFAULT, config)
-    this.scheduler = new FrameScheduler(this.flush)
+    this.config = new ConfigManager(DEFAULT, config, validateConfig)
+    this.scheduler = new UpdateScheduler(this.flush)
     this.container = new Container(this.handleResize)
+    const container = this.container
     this.context = {
-      document: this.container.element.ownerDocument,
+      get document() {
+        return container.element.ownerDocument
+      },
       player,
       config: this.config,
       container: this.container,
+      requestUpdate: this.request,
+      onLineClick: (line, index, event) => {
+        this.event.emit('line-click', line, index, event)
+      },
+      onLineContextMenu: (line, index, event) => {
+        this.event.emit('line-context-menu', line, index, event)
+      },
     }
     this.mode = this.startMode()
 
@@ -57,26 +67,28 @@ export class DomRenderer {
     this.flush()
   }
 
-  private request = (): void => {
-    this.scheduler.request()
+  private request = () => {
+    if (!this.isDisposed) {
+      this.scheduler.request()
+    }
   }
 
-  private handleResize = (): void => {
+  private handleResize = () => {
     this.sizeChanged = true
     this.request()
   }
 
-  private handleSeek = (): void => {
+  private handleSeek = () => {
     this.seeked = true
     this.request()
   }
 
-  private handleLyricUpdate = (): void => {
+  private handleLyricUpdate = () => {
     this.lyricChanged = true
     this.request()
   }
 
-  private handleConfigUpdate = (keys: Set<DomRendererConfigKeys>): void => {
+  private handleConfigUpdate = (keys: Set<DomRendererConfigKeys>) => {
     // An earlier listener in the same emission may already have disposed this renderer.
     if (this.isDisposed) {
       return
@@ -94,7 +106,7 @@ export class DomRenderer {
     this.request()
   }
 
-  private handlePlayerDispose = (): void => {
+  private handlePlayerDispose = () => {
     this.dispose()
   }
 
@@ -105,7 +117,8 @@ export class DomRenderer {
     return instance
   }
 
-  private flush = (): void => {
+  private flush = () => {
+    this.sizeChanged = this.container.sync() || this.sizeChanged
     const changes: RenderChanges = {
       lyric: this.lyricChanged,
       size: this.sizeChanged,
@@ -131,7 +144,7 @@ export class DomRenderer {
    *
    * Player disposal also triggers this cleanup; repeated calls emit no additional event.
    */
-  dispose(): void {
+  dispose() {
     if (this.isDisposed) {
       return
     }
