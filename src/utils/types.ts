@@ -6,6 +6,13 @@ export type DeepRequired<T> = {
 }
 
 /**
+ * Prevents edits to published configuration snapshots, including nested values.
+ */
+export type DeepReadonly<T> = {
+  readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K]
+}
+
+/**
  * Includes parent paths so subscribers can watch an entire configuration section.
  * Arrays remain leaf values.
  */

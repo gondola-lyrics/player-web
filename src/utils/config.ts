@@ -1,4 +1,4 @@
-import type { NestedKeys } from './types'
+import type { DeepReadonly, NestedKeys } from './types'
 
 import { Event } from './event'
 
@@ -10,29 +10,35 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null
 }
 
-const merge = (current: unknown, patch: unknown): unknown => {
-  if (patch === undefined) {
+const merge = (current: unknown, patch: unknown, validate: (path: string, value: unknown) => boolean, path = ''): unknown => {
+  if (patch === undefined || patch === null) {
     return current
   }
-  if (Array.isArray(current) && Array.isArray(patch)) {
-    const result = [...current]
-    patch.forEach((value, index) => {
-      result[index] = merge(current[index], value)
-    })
-    return result
-  }
-  if (!isRecord(current) || !isRecord(patch)) {
-    return structuredClone(patch)
-  }
-
-  return {
-    ...current,
-    ...Object.fromEntries(
-      Object.entries(patch).map(([key, value]) => {
-        return [key, merge(Object.hasOwn(current, key) ? current[key] : undefined, value)]
+  if (isRecord(current)) {
+    if (!isRecord(patch)) {
+      return current
+    }
+    return Object.fromEntries(
+      Object.entries(current).map(([key, value]) => {
+        const childPath = path ? `${path}.${key}` : key
+        return [key, Object.hasOwn(patch, key) ? merge(value, patch[key], validate, childPath) : value]
       }),
-    ),
+    )
   }
+  if (typeof current !== typeof patch || Array.isArray(current) !== Array.isArray(patch) || !validate(path, patch)) {
+    return current
+  }
+  return structuredClone(patch)
+}
+
+const freeze = <T>(value: T): T => {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) {
+      freeze(child)
+    }
+    Object.freeze(value)
+  }
+  return value
 }
 
 const compare = (previous: unknown, current: unknown, path: string, changes: Set<string>): boolean => {
@@ -78,58 +84,68 @@ export interface ConfigManagerEventMap<Full, Keys> {
 }
 
 export class ConfigManager<Full extends object, Init extends object, Keys extends string = NestedKeys<Full>> {
-  readonly event = new Event<ConfigManagerEventMap<Full, Keys>>()
+  readonly event = new Event<ConfigManagerEventMap<DeepReadonly<Full>, Keys>>()
 
   private readonly defaults: Full
   private value: Full
 
   /**
-   * Takes independent copies of defaults and the initial patch without emitting notifications.
+   * Keeps the defaults' shape and accepts only valid initial fields without emitting notifications.
    */
-  constructor(defaults: Full, initial?: Init) {
-    this.defaults = structuredClone(defaults)
-    this.value = merge(structuredClone(defaults), initial) as Full
+  constructor(
+    defaults: Full,
+    initial?: Init,
+    private readonly validate?: (path: Keys, value: unknown) => boolean,
+  ) {
+    this.defaults = freeze(structuredClone(defaults))
+    this.value = freeze(this.apply(this.defaults, initial))
   }
 
-  private update(value: Full): void {
+  private apply(current: Full, patch: unknown): Full {
+    return merge(current, patch, (path, value) => {
+      return this.validate?.(path as Keys, value) ?? true
+    }) as Full
+  }
+
+  private update(value: Full) {
     const changes = new Set<string>()
     compare(this.value, value, '', changes)
-    this.value = value
     if (changes.size > 0) {
+      this.value = freeze(value)
       this.event.emit('update', changes as Set<Keys>, value)
     }
   }
 
   /**
-   * Undefined fields retain their previous values; arrays merge by index.
+   * Null, undefined, unknown keys and fields of the wrong type retain their previous values; arrays replace as a whole.
    * Only changed values produce an update event.
    */
-  merge(patch: Init): void {
-    this.update(merge(structuredClone(this.value), patch) as Full)
+  merge(patch: Init) {
+    this.update(this.apply(this.value, patch))
   }
 
   /**
    * Commits an edited copy only after the callback succeeds, so a failed edit leaves state and listeners untouched.
    */
-  modify(edit: (config: Full) => void): void {
+  modify(edit: (config: Full) => void) {
     const value = structuredClone(this.value)
     edit(value)
-    this.update(value)
+    this.update(this.apply(this.value, value))
   }
 
   /**
    * Restores the saved defaults and always emits reset.
    * A value change also emits update first.
    */
-  reset(): void {
+  reset() {
     this.update(structuredClone(this.defaults))
     this.event.emit('reset', this.value)
   }
 
   /**
-   * Exposes the live stored object; use merge or modify to publish edits to subscribers.
+   * Returns a frozen snapshot; use merge or modify to publish edits to subscribers.
    */
-  get current(): Full {
-    return this.value
+  get current(): DeepReadonly<Full> {
+    return this.value as DeepReadonly<Full>
   }
 }
