@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "paths": {
+      "@root/*": ["../src/*"],
+      "@gondola-lyrics/player": ["../src/index.ts"],
+      "@gondola-lyrics/player/core": ["../src/core/index.ts"],
+      "@gondola-lyrics/player/renderer": ["../src/renderer/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
+}
