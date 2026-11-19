@@ -1,6 +1,6 @@
 import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
 
-export class Merger {
+export class CoreMerger {
   private lines: EnrichedLine[] = []
   private mergedEnd: number[] = []
 

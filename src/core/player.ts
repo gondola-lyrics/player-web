@@ -7,11 +7,11 @@ import { EnrichedLyricStatus, makeEnrichedLyric } from '@gondola-lyrics/model/en
 import { SCHEMA_VERSION } from '@gondola-lyrics/model/version'
 import { major, parse } from 'semver'
 
+import { CoreMerger } from '@root/core/merger/merger'
 import { ConfigManager, Event } from '@root/utils'
 
 import { DEFAULT } from './config'
 import { Driver } from './driver'
-import { Merger } from './merger'
 import { Offset } from './offset'
 
 const SUPPORTED_SCHEMA_MAJOR = major(SCHEMA_VERSION)
@@ -51,7 +51,7 @@ export class CorePlayer {
 
   private nextLineIndex = 0
 
-  private readonly lineMerger = new Merger()
+  private readonly lineMerger = new CoreMerger()
   private readonly offsetState = new Offset()
   private readonly tickDriver = new Driver()
 

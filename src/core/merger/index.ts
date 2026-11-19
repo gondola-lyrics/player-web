@@ -1,0 +1,1 @@
+export { CoreMerger } from './merger'
