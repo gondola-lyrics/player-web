@@ -1,4 +1,4 @@
-@use '../common.scss' as *;
+@use '@root/renderer/dom/components/common.scss' as *;
 
 .gondola-lyrics-player-normal[data-role='line-normal'] {
   position: relative;

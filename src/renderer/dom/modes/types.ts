@@ -1,4 +1,5 @@
-import type { RenderChanges } from '../context'
+import type { RenderChanges } from '@root/renderer/common/types'
+import type { DomRendererConfigKeys } from '@root/renderer/dom/config'
 
 /**
  * A mode mounts itself into the shared container when constructed.
@@ -7,7 +8,7 @@ export interface RenderMode {
   /**
    * Reads the latest player state; changes lists what happened since the previous update.
    */
-  update(changes: RenderChanges): void
+  update(changes: RenderChanges<DomRendererConfigKeys>): void
   /**
    * Paints the lyric clock in milliseconds and returns the next lyric time requiring a repaint.
    */

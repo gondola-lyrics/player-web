@@ -1,5 +1,5 @@
-import type { DomRendererMode } from '../config'
-import type { RenderContext } from '../context'
+import type { DomRendererMode } from '@root/renderer/dom/config'
+import type { RenderContext } from '@root/renderer/dom/context'
 import type { RenderMode } from './types'
 
 import { ListMode } from './list/mode'

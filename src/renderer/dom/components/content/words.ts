@@ -1,6 +1,6 @@
 import type { TimeRange } from '@gondola-lyrics/model/common'
 import type { EnrichedWord } from '@gondola-lyrics/model/enriched'
-import type { TimeCue } from '../../timeline'
+import type { TimeCue } from '@root/renderer/dom/timeline'
 import type { MaskWord } from './animation/mask'
 
 import { EnrichedWordType } from '@gondola-lyrics/model/enriched'

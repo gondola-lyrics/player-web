@@ -1,16 +1,16 @@
+import type { RendererSource } from '@root/renderer/common/types'
 import type { DomRendererConfig, DomRendererConfigKeys, DomRendererConfigManager } from './config'
-import type { DomRendererSource, RenderChanges, RenderContext } from './context'
+import type { RenderContext } from './context'
 import type { DomRendererEventMap } from './events'
 import type { RenderMode } from './modes/types'
 
 import { ConfigManager, Event } from '@root/utils'
+import { UpdateScheduler } from '@root/renderer/common/scheduler'
+import { ChangeTracker } from '@root/renderer/common/tracker'
 
 import { DEFAULT, validateConfig } from './config'
 import { Container } from './container'
 import { createMode } from './modes'
-import { UpdateScheduler } from './scheduler'
-
-const RENDER_EVENTS = ['play', 'pause', 'active-lines-update', 'current-lines-update', 'offset-update'] as const
 
 export class DomRenderer {
   readonly config: DomRendererConfigManager
@@ -18,21 +18,19 @@ export class DomRenderer {
 
   private readonly container: Container
   private readonly scheduler: UpdateScheduler
+  private readonly tracker: ChangeTracker<DomRendererConfigKeys>
   private readonly context: RenderContext
   private mode: RenderMode
   private isDisposed = false
 
-  private lyricChanged = true
-  private sizeChanged = false
-  private seeked = false
-  private configChanges = new Set<DomRendererConfigKeys>()
+  private cancelTimeUpdate?: () => void
 
   /**
    * Renders the current lyric immediately; append element to a host that defines the viewport size.
    * The player stays independently owned and can drive several renderers.
    */
   constructor(
-    private readonly player: DomRendererSource,
+    private readonly player: RendererSource,
     config?: DomRendererConfig,
   ) {
     this.config = new ConfigManager(DEFAULT, config, validateConfig)
@@ -56,12 +54,9 @@ export class DomRenderer {
     }
     this.mode = this.startMode()
 
-    for (const event of RENDER_EVENTS) {
-      player.event.add(event, this.request)
-    }
-    player.event.add('seek', this.handleSeek)
-    player.event.add('lyric-update', this.handleLyricUpdate)
-    player.event.add('dispose', this.handlePlayerDispose)
+    this.tracker = new ChangeTracker(player, this.request, () => {
+      this.dispose()
+    })
     this.config.event.add('update', this.handleConfigUpdate)
 
     this.flush()
@@ -74,17 +69,7 @@ export class DomRenderer {
   }
 
   private handleResize = () => {
-    this.sizeChanged = true
-    this.request()
-  }
-
-  private handleSeek = () => {
-    this.seeked = true
-    this.request()
-  }
-
-  private handleLyricUpdate = () => {
-    this.lyricChanged = true
+    this.tracker.mark({ size: true })
     this.request()
   }
 
@@ -98,16 +83,10 @@ export class DomRenderer {
       const next = this.startMode()
       this.mode.dispose()
       this.mode = next
-      this.lyricChanged = true
+      this.tracker.mark({ lyric: true })
     }
-    for (const key of keys) {
-      this.configChanges.add(key)
-    }
+    this.tracker.mark({ config: keys })
     this.request()
-  }
-
-  private handlePlayerDispose = () => {
-    this.dispose()
   }
 
   private startMode(): RenderMode {
@@ -118,25 +97,32 @@ export class DomRenderer {
   }
 
   private flush = () => {
-    this.sizeChanged = this.container.sync() || this.sizeChanged
-    const changes: RenderChanges = {
-      lyric: this.lyricChanged,
-      size: this.sizeChanged,
-      seek: this.seeked,
-      config: this.configChanges,
-    }
-    this.lyricChanged = false
-    this.sizeChanged = false
-    this.seeked = false
-    this.configChanges = new Set()
-    this.mode.update(changes)
+    this.tracker.mark({ size: this.container.sync() })
+    this.mode.update(this.tracker.take())
     this.updateTime()
   }
 
   private updateTime = () => {
     const lyricTime = this.player.currentTime + this.player.currentOffset
     const next = this.mode.updateTime(lyricTime)
-    this.scheduler.scheduleTime(this.context.document.defaultView, this.player.currentPlaying ? next - lyricTime : Infinity, this.updateTime)
+    this.cancelTimeUpdate?.()
+    this.cancelTimeUpdate = undefined
+    const view = this.context.document.defaultView
+    const delay = this.player.currentPlaying ? next - lyricTime : Infinity
+    if (this.isDisposed || !view || !Number.isFinite(delay)) {
+      return
+    }
+    if (delay <= 0) {
+      const frame = view.requestAnimationFrame(this.updateTime)
+      this.cancelTimeUpdate = () => {
+        view.cancelAnimationFrame(frame)
+      }
+    } else {
+      const timer = view.setTimeout(this.updateTime, Math.min(Math.ceil(delay), 2 ** 31 - 1))
+      this.cancelTimeUpdate = () => {
+        view.clearTimeout(timer)
+      }
+    }
   }
 
   /**
@@ -156,14 +142,11 @@ export class DomRenderer {
       return
     }
     this.isDisposed = true
-    for (const event of RENDER_EVENTS) {
-      this.player.event.remove(event, this.request)
-    }
-    this.player.event.remove('seek', this.handleSeek)
-    this.player.event.remove('lyric-update', this.handleLyricUpdate)
-    this.player.event.remove('dispose', this.handlePlayerDispose)
+    this.tracker.dispose()
     this.config.event.remove('update', this.handleConfigUpdate)
     this.scheduler.dispose()
+    this.cancelTimeUpdate?.()
+    this.cancelTimeUpdate = undefined
     this.mode.dispose()
     this.container.dispose()
     this.event.emit('dispose')

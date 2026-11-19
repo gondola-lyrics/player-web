@@ -1,10 +1,13 @@
-import type { RenderChanges, RenderContext } from '../../context'
-import type { RenderMode } from '../types'
+import type { RenderChanges } from '@root/renderer/common/types'
+import type { DomRendererConfigKeys } from '@root/renderer/dom/config'
+import type { RenderContext } from '@root/renderer/dom/context'
+import type { RenderMode } from '@root/renderer/dom/modes/types'
 
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
-import { LineObject } from '../../components/line/line'
-import { RenderTimeline } from '../../timeline'
+import { LineObject } from '@root/renderer/dom/components/line/line'
+import { RenderTimeline } from '@root/renderer/dom/timeline'
+
 import { DEFAULT } from './config'
 import { ListScroll } from './scroll'
 
@@ -123,7 +126,7 @@ export class ListMode implements RenderMode {
   /**
    * Keeps native scrolling independent of line state, so browsing does not change which lyrics are active.
    */
-  update(changes: RenderChanges) {
+  update(changes: RenderChanges<DomRendererConfigKeys>) {
     if (this.isDisposed) {
       return
     }

@@ -1,5 +1,5 @@
 import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
-import type { TimeCue } from '../../timeline'
+import type { TimeCue } from '@root/renderer/dom/timeline'
 
 import { isTimeInTimeRange } from '@gondola-lyrics/model/common'
 import { getEnrichedLineContentText, hasEnrichedLineWords } from '@gondola-lyrics/model/enriched'

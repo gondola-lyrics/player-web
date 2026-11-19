@@ -1,5 +1,5 @@
 import type { TimeRange } from '@gondola-lyrics/model/common'
-import type { TimeCue } from '../../../timeline'
+import type { TimeCue } from '@root/renderer/dom/timeline'
 
 import { getTimeRangeProgress } from '@gondola-lyrics/model/common'
 

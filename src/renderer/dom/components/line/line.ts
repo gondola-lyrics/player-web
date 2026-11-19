@@ -3,7 +3,8 @@ import type { LineConfigRequired } from './config'
 
 import { EnrichedLineType } from '@gondola-lyrics/model/enriched'
 
-import { ContentBlock } from '../content/block'
+import { ContentBlock } from '@root/renderer/dom/components/content/block'
+
 import { DEFAULT } from './config'
 
 interface LineInteractions {
