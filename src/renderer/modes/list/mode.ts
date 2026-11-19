@@ -4,6 +4,7 @@ import type { RenderMode } from '../types'
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
 import { LineObject } from '../../components/line/line'
+import { RenderTimeline } from '../../timeline'
 import { DEFAULT } from './config'
 import { ListScroll } from './scroll'
 
@@ -12,6 +13,7 @@ export class ListMode implements RenderMode {
   private readonly content: HTMLDivElement
   private readonly observer: ResizeObserver
   private readonly scroll: ListScroll
+  private readonly timeline = new RenderTimeline()
   private fonts: FontFaceSet
   private lines: LineObject[] = []
   private focusIndex = 0
@@ -23,14 +25,15 @@ export class ListMode implements RenderMode {
    */
   constructor(private readonly context: RenderContext) {
     this.element = context.document.createElement('div')
-    this.element.className = 'gondola-list'
+    this.element.className = 'gondola-lyrics-player-container'
+    this.element.dataset.role = 'container'
     this.element.tabIndex = 0
     this.element.setAttribute('role', 'group')
     this.element.setAttribute('aria-label', 'Lyrics')
     this.element.addEventListener('keydown', this.handleKeyDown)
     this.element.addEventListener('focusin', this.handleFocusIn)
     this.content = context.document.createElement('div')
-    this.content.className = 'gondola-list-content'
+    this.content.className = 'gondola-lyrics-player-list-content'
     this.element.appendChild(this.content)
     context.container.element.appendChild(this.element)
     this.scroll = new ListScroll(this.element, context.requestUpdate)
@@ -145,17 +148,23 @@ export class ListMode implements RenderMode {
       }
       this.layoutDirty = true
     }
+    if (changes.lyric || changes.config.has('line.words.enabled')) {
+      this.timeline.replace(this.lines.flatMap((line) => line.timeCues))
+    }
     if (changes.seek) {
       this.scroll.reset()
     }
     const gap = Number.isFinite(list.gap) ? Math.max(0, list.gap) : DEFAULT.gap
-    this.content.style.setProperty('--gondola-list-gap', `${gap}px`)
+    this.content.style.setProperty('--gondola-lyrics-player-layout-gap', `${gap}px`)
     this.content.style.textAlign = list.align
 
     const active = new Set(activeIndexes)
     const current = new Set(currentIndexes)
+    const lyricTime = this.context.player.currentTime + this.context.player.currentOffset
     for (const [index, line] of this.lines.entries()) {
-      line.updateState(active.has(index), current.has(index))
+      line.element.setAttribute('position', list.align)
+      line.element.style.setProperty('--gondola-lyrics-player-line-position', list.align)
+      line.updateState(active.has(index), current.has(index), lyricTime)
     }
     if (!this.element.matches(':focus-within')) {
       this.setFocusIndex(activeIndexes[0] ?? 0)
@@ -165,6 +174,9 @@ export class ListMode implements RenderMode {
     const anchor = Number.isFinite(list.scroll.anchor) ? Math.min(100, Math.max(0, list.scroll.anchor)) : DEFAULT.scroll.anchor
     const targetY = (height * anchor) / 100
     if (this.layoutDirty || changes.size || changes.config.has('modes.list')) {
+      for (const line of this.lines) {
+        line.measureWords()
+      }
       const first = this.lines[0]?.measure()
       const last = this.lines[this.lines.length - 1]?.measure()
       const follow = hasTiming && list.scroll.follow
@@ -179,6 +191,13 @@ export class ListMode implements RenderMode {
   }
 
   /**
+   * Paints timed text independently of list measurement, focus and scroll following.
+   */
+  updateTime(lyricTime: number): number {
+    return this.timeline.updateTime(lyricTime)
+  }
+
+  /**
    * Detaches only this mode's nodes; the container is reused by the next mode.
    */
   dispose() {
@@ -188,6 +207,7 @@ export class ListMode implements RenderMode {
     this.element.removeEventListener('keydown', this.handleKeyDown)
     this.element.removeEventListener('focusin', this.handleFocusIn)
     this.scroll.dispose()
+    this.timeline.replace([])
     for (const line of this.lines) {
       line.dispose()
     }

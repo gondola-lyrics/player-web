@@ -1,4 +1,4 @@
-.gondola-list {
+.gondola-lyrics-player-container[data-role='container'] {
   position: relative;
   height: 100%;
   min-height: 0;
@@ -9,12 +9,12 @@
   scrollbar-gutter: stable;
 }
 
-.gondola-list-content {
+.gondola-lyrics-player-container[data-role='container'] > .gondola-lyrics-player-list-content {
   position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--gondola-list-gap, 24px);
+  gap: var(--gondola-lyrics-player-layout-gap, 24px);
   min-width: 0;
   padding-inline: 24px;
 }

@@ -5,7 +5,7 @@ import renderer from './style.scss?inline'
 
 type StyleRoot = Document | ShadowRoot
 
-const STYLES = `@layer gondola {\n${[renderer, content, line, list].join('\n')}\n}`
+const STYLES = `@layer gondola-lyrics-player {\n${[renderer, content, line, list].join('\n')}\n}`
 const sheets = new WeakMap<Document, CSSStyleSheet>()
 const roots = new WeakMap<StyleRoot, { document: Document; sheet: CSSStyleSheet; users: number }>()
 

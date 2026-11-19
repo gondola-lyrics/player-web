@@ -130,6 +130,13 @@ export class DomRenderer {
     this.seeked = false
     this.configChanges = new Set()
     this.mode.update(changes)
+    this.updateTime()
+  }
+
+  private updateTime = () => {
+    const lyricTime = this.player.currentTime + this.player.currentOffset
+    const next = this.mode.updateTime(lyricTime)
+    this.scheduler.scheduleTime(this.context.document.defaultView, this.player.currentPlaying ? next - lyricTime : Infinity, this.updateTime)
   }
 
   /**

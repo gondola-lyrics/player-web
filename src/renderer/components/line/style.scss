@@ -1,34 +1,36 @@
-.gondola-line {
+.gondola-lyrics-player-wrapper[data-role='line'] {
   position: relative;
   flex: none;
   min-width: 0;
   padding-block: 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: var(--gondola-font-size, 30px);
-  font-family: var(--gondola-font-family, inherit);
-  font-weight: var(--gondola-font-weight, 500);
+  font-size: var(--gondola-lyrics-player-line-normal-base-font-size, 30px);
+  font-family: var(--gondola-lyrics-player-line-normal-base-font-family, inherit);
+  font-weight: var(--gondola-lyrics-player-line-normal-base-font-weight, 500);
 
   &:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: 4px;
   }
 
-  &[data-active] > .gondola-instrumental {
+  &[active] > .gondola-lyrics-player-interlude {
     opacity: 1;
   }
 }
 
-.gondola-backgrounds {
-  --gondola-content-scale: 0.75;
-
+.gondola-lyrics-player-wrapper[data-role='line'] > .gondola-lyrics-player-backgrounds {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-block-start: 12px;
+
+  > .gondola-lyrics-player-background {
+    font-size: 0.75em;
+  }
 }
 
-.gondola-instrumental {
+.gondola-lyrics-player-interlude[data-role='line-interlude'] {
   line-height: 1.35;
   letter-spacing: 0.3em;
   opacity: 0.4;

@@ -143,7 +143,7 @@ export class ListScroll {
       return
     }
     this.browsing = true
-    this.element.setAttribute('data-browsing', '')
+    this.element.setAttribute('scrolling', '')
     this.scheduleResume()
   }
 
@@ -212,7 +212,7 @@ export class ListScroll {
     this.browsing = false
     this.lastTop = this.element.scrollTop
     this.recordDimensions()
-    this.element.removeAttribute('data-browsing')
+    this.element.removeAttribute('scrolling')
   }
 
   /**

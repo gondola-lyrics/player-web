@@ -62,6 +62,7 @@ export const EN = {
   'settings.fontFamily': 'Font family',
   'settings.fontFamilyHint': 'Inherit the page font',
   'settings.fontWeight': 'Font weight',
+  'settings.wordHighlight': 'Highlight words as they are sung',
   'settings.gap': 'Line gap (px)',
   'settings.align': 'Alignment',
   'settings.left': 'Left',

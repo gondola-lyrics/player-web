@@ -108,6 +108,13 @@ const number = (value: number | null, apply: (value: number) => void) => {
             :placeholder="i18n.t('settings.fontFamilyHint')"
             @update:value="rendererPatch({ line: { font: { family: $event } } })"
         /></NFormItem>
+        <NFormItem :label="i18n.t('settings.wordHighlight')">
+          <NSwitch
+            :value="renderer.line.words.enabled"
+            :aria-label="i18n.t('settings.wordHighlight')"
+            @update:value="rendererPatch({ line: { words: { enabled: $event } } })"
+          />
+        </NFormItem>
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.gap')"
             ><NInputNumber

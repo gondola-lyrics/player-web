@@ -1,4 +1,17 @@
-.gondola-renderer {
+.gondola-lyrics-player-root[data-role='root'] {
+  --gondola-lyrics-player-line-normal-base-color: currentColor;
+  --gondola-lyrics-player-line-normal-base-opacity: 0.6;
+  --gondola-lyrics-player-line-normal-base-active-color: currentColor;
+  --gondola-lyrics-player-line-normal-base-active-opacity: 1;
+  --gondola-lyrics-player-line-normal-base-played-color: currentColor;
+  --gondola-lyrics-player-line-normal-base-played-opacity: 0.4;
+  --gondola-lyrics-player-line-normal-main-syllable-color: var(--gondola-lyrics-player-line-normal-base-color);
+  --gondola-lyrics-player-line-normal-main-syllable-opacity: var(--gondola-lyrics-player-line-normal-base-opacity);
+  --gondola-lyrics-player-line-normal-main-syllable-active-color: var(--gondola-lyrics-player-line-normal-base-active-color);
+  --gondola-lyrics-player-line-normal-main-syllable-active-opacity: var(--gondola-lyrics-player-line-normal-base-active-opacity);
+  --gondola-lyrics-player-line-normal-main-syllable-played-color: var(--gondola-lyrics-player-line-normal-base-played-color);
+  --gondola-lyrics-player-line-normal-main-syllable-played-opacity: var(--gondola-lyrics-player-line-normal-base-played-opacity);
+
   box-sizing: border-box;
   width: 100%;
   height: 100%;

@@ -1,17 +1,96 @@
-.gondola-content {
-  position: relative;
-  min-width: 0;
-  font-size: calc(1em * var(--gondola-content-scale, 1));
-  line-height: 1.35;
-  opacity: 0.6;
+@use '../common.scss' as *;
 
-  &[data-active] {
-    opacity: 1;
+.gondola-lyrics-player-normal[data-role='line-normal'] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  row-gap: 8px;
+  min-width: 0;
+  line-height: 1.35;
+  transition: opacity 0.6s ease;
+
+  @include apply-line-font('base');
+  @include apply-line-style('base');
+
+  > :is(.gondola-lyrics-player-plain, .gondola-lyrics-player-syllable) {
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    @include apply-line-font('main-syllable');
+  }
+
+  > .gondola-lyrics-player-plain,
+  > .gondola-lyrics-player-syllable .gondola-lyrics-player-word {
+    @include apply-line-style('main-syllable');
+  }
+
+  &[played]:not([scrolling] [played]) {
+    @include apply-line-style('base-played');
+
+    > .gondola-lyrics-player-plain,
+    > .gondola-lyrics-player-syllable .gondola-lyrics-player-word {
+      @include apply-line-style('main-syllable-played');
+    }
+  }
+
+  &[active] {
+    @include apply-line-style('base-active');
+
+    > .gondola-lyrics-player-plain,
+    > .gondola-lyrics-player-syllable .gondola-lyrics-player-word {
+      @include apply-line-style('main-syllable-active');
+      transition-duration: 0s;
+    }
+
+    > .gondola-lyrics-player-syllable .gondola-lyrics-player-wipe {
+      --gondola-lyrics-player-mask-normal-opacity: calc(
+        #{build-line-variable('normal', 'main-syllable', 'opacity')} / #{build-line-variable('normal', 'main-syllable-active', 'opacity')}
+      );
+    }
   }
 }
 
-.gondola-text {
-  min-width: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.gondola-lyrics-player-syllable[data-role='line-normal-text'] {
+  .gondola-lyrics-player-cell {
+    --gondola-lyrics-player-emphasize-padding-horizontal: 0px;
+    --gondola-lyrics-player-emphasize-padding-vertical: 0px;
+    --gondola-lyrics-player-word-gap: 0px;
+    --gondola-lyrics-player-word-align-top: 0px;
+
+    display: inline-block;
+    vertical-align: top;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    padding-top: var(--gondola-lyrics-player-word-align-top);
+    margin: calc(-1 * var(--gondola-lyrics-player-emphasize-padding-vertical))
+      calc(var(--gondola-lyrics-player-word-gap) - var(--gondola-lyrics-player-emphasize-padding-horizontal));
+  }
+
+  .gondola-lyrics-player-wipe {
+    --gondola-lyrics-player-mask-normal-opacity: 1;
+    --gondola-lyrics-player-mask-active-opacity: #{build-line-variable('normal', 'main-syllable-active', 'opacity')};
+
+    display: inline-block;
+    vertical-align: top;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    mask-mode: alpha;
+    mask-repeat: no-repeat;
+  }
+
+  .gondola-lyrics-player-word {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
+    box-sizing: border-box;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    transition: opacity 0.8s ease;
+    padding: var(--gondola-lyrics-player-emphasize-padding-vertical) var(--gondola-lyrics-player-emphasize-padding-horizontal);
+  }
+
+  .gondola-lyrics-player-char {
+    display: inline-block;
+  }
 }

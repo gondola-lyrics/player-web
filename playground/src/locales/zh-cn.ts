@@ -64,6 +64,7 @@ export const ZH: Record<MessageKey, string> = {
   'settings.fontFamily': '字体',
   'settings.fontFamilyHint': '继承页面字体',
   'settings.fontWeight': '字重',
+  'settings.wordHighlight': '逐字高亮',
   'settings.gap': '行间距（px）',
   'settings.align': '对齐',
   'settings.left': '左对齐',

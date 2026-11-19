@@ -15,7 +15,7 @@ export class LineObject {
   readonly element: HTMLDivElement
 
   private readonly main: ContentBlock | null
-  private readonly backgrounds: ContentBlock[]
+  private readonly blocks: ContentBlock[] = []
   private readonly instrumental: HTMLDivElement | null
 
   /**
@@ -29,31 +29,33 @@ export class LineObject {
     private readonly interactions: LineInteractions,
   ) {
     this.element = document.createElement('div')
-    this.element.className = 'gondola-line'
+    this.element.className = 'gondola-lyrics-player-wrapper'
+    this.element.dataset.role = 'line'
     this.element.dataset.lineIndex = String(index)
     this.element.setAttribute('role', 'button')
     this.element.tabIndex = -1
     this.main = null
     this.instrumental = null
-    this.backgrounds = []
 
     if (line.type === EnrichedLineType.INSTRUMENTAL) {
       this.element.dataset.type = 'instrumental'
       this.instrumental = document.createElement('div')
-      this.instrumental.className = 'gondola-instrumental'
+      this.instrumental.className = 'gondola-lyrics-player-interlude'
+      this.instrumental.dataset.role = 'line-interlude'
       this.instrumental.textContent = '···'
       this.instrumental.setAttribute('aria-label', 'Instrumental')
       this.element.appendChild(this.instrumental)
     } else {
       this.element.dataset.type = 'normal'
-      this.main = new ContentBlock(document, line)
+      this.main = new ContentBlock(document, line, config.words.enabled)
+      this.blocks.push(this.main)
       this.element.appendChild(this.main.element)
       if (line.backgrounds.length > 0) {
         const backgroundElement = document.createElement('div')
-        backgroundElement.className = 'gondola-backgrounds'
+        backgroundElement.className = 'gondola-lyrics-player-backgrounds'
         for (const background of line.backgrounds) {
-          const block = new ContentBlock(document, background)
-          this.backgrounds.push(block)
+          const block = new ContentBlock(document, background, config.words.enabled, true)
+          this.blocks.push(block)
           backgroundElement.appendChild(block.element)
         }
         this.element.appendChild(backgroundElement)
@@ -94,21 +96,32 @@ export class LineObject {
   }
 
   /**
-   * Shares configurable fonts with text and instrumental content while leaving CSS properties overridable by the host.
+   * Shares the font across the row and applies word timing independently to each vocal part.
    */
   updateConfig(config: LineConfigRequired) {
     const size = Number.isFinite(config.font.size) && config.font.size > 0 ? config.font.size : DEFAULT.font.size
     const weight = Number.isFinite(config.font.weight) ? config.font.weight : DEFAULT.font.weight
-    this.element.style.setProperty('--gondola-font-size', `${size}px`)
-    this.element.style.setProperty('--gondola-font-family', config.font.family || 'inherit')
-    this.element.style.setProperty('--gondola-font-weight', String(weight))
+    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-size', `${size}px`)
+    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-family', config.font.family || 'inherit')
+    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-weight', String(weight))
+    for (const block of this.blocks) {
+      block.setWordsEnabled(config.words.enabled)
+    }
+  }
+
+  /**
+   * Includes background vocals even when their first word precedes the main line.
+   */
+  get timeCues() {
+    return this.blocks.flatMap((block) => block.timeCues)
   }
 
   /**
    * Applies display and original-time state equally during playback and paused seeks.
    */
-  updateState(active: boolean, current: boolean) {
-    this.element.toggleAttribute('data-active', active)
+  updateState(active: boolean, current: boolean, lyricTime: number) {
+    this.element.toggleAttribute('active', active)
+    this.element.toggleAttribute('played', !active && lyricTime >= (this.line.time?.end ?? Infinity))
     this.element.toggleAttribute('data-current', current)
     if (current) {
       this.element.setAttribute('aria-current', 'true')
@@ -116,6 +129,15 @@ export class LineObject {
       this.element.removeAttribute('aria-current')
     }
     this.main?.updateState(active, current)
+  }
+
+  /**
+   * Refreshes text masks independently of the row's scroll anchor.
+   */
+  measureWords() {
+    for (const block of this.blocks) {
+      block.measureWords()
+    }
   }
 
   /**
@@ -135,9 +157,8 @@ export class LineObject {
     this.element.removeEventListener('click', this.handleClick)
     this.element.removeEventListener('contextmenu', this.handleContextMenu)
     this.element.removeEventListener('keydown', this.handleKeyDown)
-    this.main?.dispose()
-    for (const background of this.backgrounds) {
-      background.dispose()
+    for (const block of this.blocks) {
+      block.dispose()
     }
     this.element.remove()
   }

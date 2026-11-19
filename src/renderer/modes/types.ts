@@ -9,6 +9,10 @@ export interface RenderMode {
    */
   update(changes: RenderChanges): void
   /**
+   * Paints the lyric clock in milliseconds and returns the next lyric time requiring a repaint.
+   */
+  updateTime(lyricTime: number): number
+  /**
    * Releases only the mode's own nodes, listeners and animations.
    */
   dispose(): void

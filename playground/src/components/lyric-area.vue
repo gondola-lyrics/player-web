@@ -38,7 +38,7 @@ onMounted(() => {
 .lyric-host {
   padding: 0;
 
-  :deep(.gondola-list) {
+  :deep([data-role='container']) {
     scrollbar-width: thin;
     scrollbar-color: var(--line) transparent;
   }
