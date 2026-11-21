@@ -1,11 +1,12 @@
 import content from './components/content/style.scss?inline'
 import line from './components/line/style.scss?inline'
+import { CSS_NAMESPACE } from './css'
 import list from './modes/list/style.scss?inline'
 import renderer from './style.scss?inline'
 
 type StyleRoot = Document | ShadowRoot
 
-const STYLES = `@layer gondola-lyrics-player {\n${[renderer, content, line, list].join('\n')}\n}`
+const STYLES = `@layer ${CSS_NAMESPACE} {\n${[renderer, content, line, list].join('\n')}\n}`
 const sheets = new WeakMap<Document, CSSStyleSheet>()
 const roots = new WeakMap<StyleRoot, { document: Document; sheet: CSSStyleSheet; users: number }>()
 

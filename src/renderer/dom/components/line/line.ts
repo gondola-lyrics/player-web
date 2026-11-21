@@ -4,8 +4,13 @@ import type { LineConfigRequired } from './config'
 import { EnrichedLineType } from '@gondola-lyrics/model/enriched'
 
 import { ContentBlock } from '@root/renderer/dom/components/content/block'
+import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
 
 import { DEFAULT } from './config'
+
+const FONT_SIZE = buildLineVariableKey('line-normal-base-font-size')
+const FONT_FAMILY = buildLineVariableKey('line-normal-base-font-family')
+const FONT_WEIGHT = buildLineVariableKey('line-normal-base-font-weight')
 
 interface LineInteractions {
   click: (line: EnrichedLine, index: number, event: MouseEvent) => void
@@ -30,7 +35,7 @@ export class LineObject {
     private readonly interactions: LineInteractions,
   ) {
     this.element = document.createElement('div')
-    this.element.className = 'gondola-lyrics-player-wrapper'
+    this.element.className = buildClassName('wrapper')
     this.element.dataset.role = 'line'
     this.element.dataset.lineIndex = String(index)
     this.element.setAttribute('role', 'button')
@@ -41,7 +46,7 @@ export class LineObject {
     if (line.type === EnrichedLineType.INSTRUMENTAL) {
       this.element.dataset.type = 'instrumental'
       this.instrumental = document.createElement('div')
-      this.instrumental.className = 'gondola-lyrics-player-interlude'
+      this.instrumental.className = buildClassName('interlude')
       this.instrumental.dataset.role = 'line-interlude'
       this.instrumental.textContent = '···'
       this.instrumental.setAttribute('aria-label', 'Instrumental')
@@ -53,7 +58,7 @@ export class LineObject {
       this.element.appendChild(this.main.element)
       if (line.backgrounds.length > 0) {
         const backgroundElement = document.createElement('div')
-        backgroundElement.className = 'gondola-lyrics-player-backgrounds'
+        backgroundElement.className = buildClassName('backgrounds')
         for (const background of line.backgrounds) {
           const block = new ContentBlock(document, background, config.words.enabled, true)
           this.blocks.push(block)
@@ -102,9 +107,9 @@ export class LineObject {
   updateConfig(config: LineConfigRequired) {
     const size = Number.isFinite(config.font.size) && config.font.size > 0 ? config.font.size : DEFAULT.font.size
     const weight = Number.isFinite(config.font.weight) ? config.font.weight : DEFAULT.font.weight
-    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-size', `${size}px`)
-    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-family', config.font.family || 'inherit')
-    this.element.style.setProperty('--gondola-lyrics-player-line-normal-base-font-weight', String(weight))
+    this.element.style.setProperty(FONT_SIZE, `${size}px`)
+    this.element.style.setProperty(FONT_FAMILY, config.font.family || 'inherit')
+    this.element.style.setProperty(FONT_WEIGHT, String(weight))
     for (const block of this.blocks) {
       block.setWordsEnabled(config.words.enabled)
     }

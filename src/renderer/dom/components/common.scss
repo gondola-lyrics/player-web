@@ -1,28 +1,14 @@
-@function build-root-variable($target, $default: null) {
-  @if $default == null {
-    @return var(--gondola-lyrics-player-#{$target});
-  }
-  @return var(--gondola-lyrics-player-#{$target}, #{$default});
-}
+@forward '@root/renderer/dom/css.scss';
 
-@function build-line-variable($module, $sub: null, $suffix: null, $default: null) {
-  $name: 'line-#{$module}';
-  @if $sub != null {
-    $name: '#{$name}-#{$sub}';
-  }
-  @if $suffix != null {
-    $name: '#{$name}-#{$suffix}';
-  }
-  @return build-root-variable($name, $default);
-}
+@use '@root/renderer/dom/css.scss' as *;
 
 @mixin apply-line-font($element) {
-  font-size: build-line-variable('normal', $element, 'font-size', inherit);
-  font-weight: build-line-variable('normal', $element, 'font-weight', inherit);
-  font-family: build-line-variable('normal', $element, 'font-family', inherit);
+  font-size: build-line-variable('line-normal-#{$element}-font-size', inherit);
+  font-weight: build-line-variable('line-normal-#{$element}-font-weight', inherit);
+  font-family: build-line-variable('line-normal-#{$element}-font-family', inherit);
 }
 
 @mixin apply-line-style($element) {
-  color: build-line-variable('normal', $element, 'color');
-  opacity: build-line-variable('normal', $element, 'opacity');
+  color: build-line-variable('line-normal-#{$element}-color');
+  opacity: build-line-variable('line-normal-#{$element}-opacity');
 }

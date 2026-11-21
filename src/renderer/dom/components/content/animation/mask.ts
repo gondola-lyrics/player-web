@@ -3,6 +3,11 @@ import type { TimeCue } from '@root/renderer/dom/timeline'
 
 import { getTimeRangeProgress } from '@gondola-lyrics/model/common'
 
+import { buildRootVariableKey } from '@root/renderer/dom/css'
+
+const MASK_ACTIVE_OPACITY = `var(${buildRootVariableKey('mask-active-opacity')})`
+const MASK_NORMAL_OPACITY = `var(${buildRootVariableKey('mask-normal-opacity')})`
+
 export interface MaskWord {
   readonly wipe: HTMLElement
   readonly word: HTMLElement
@@ -38,7 +43,7 @@ const maskGradient = (width: number, feather: number): string => {
   const imageWidth = 2 * width + feather
   const bright = (width / imageWidth) * 100
   const dim = ((width + feather) / imageWidth) * 100
-  return `linear-gradient(to right, rgba(0, 0, 0, var(--gondola-lyrics-player-mask-active-opacity)) ${bright}%, rgba(0, 0, 0, var(--gondola-lyrics-player-mask-normal-opacity)) ${dim}%)`
+  return `linear-gradient(to right, rgba(0, 0, 0, ${MASK_ACTIVE_OPACITY}) ${bright}%, rgba(0, 0, 0, ${MASK_NORMAL_OPACITY}) ${dim}%)`
 }
 
 const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {

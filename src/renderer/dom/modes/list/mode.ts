@@ -6,10 +6,14 @@ import type { RenderMode } from '@root/renderer/dom/modes/types'
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
 import { LineObject } from '@root/renderer/dom/components/line/line'
+import { buildClassName, buildLineVariableKey, buildRootVariableKey } from '@root/renderer/dom/css'
 import { RenderTimeline } from '@root/renderer/dom/timeline'
 
 import { DEFAULT } from './config'
 import { ListScroll } from './scroll'
+
+const LAYOUT_GAP = buildRootVariableKey('layout-gap')
+const LINE_POSITION = buildLineVariableKey('line-position')
 
 export class ListMode implements RenderMode {
   private readonly element: HTMLDivElement
@@ -28,7 +32,7 @@ export class ListMode implements RenderMode {
    */
   constructor(private readonly context: RenderContext) {
     this.element = context.document.createElement('div')
-    this.element.className = 'gondola-lyrics-player-container'
+    this.element.className = buildClassName('container')
     this.element.dataset.role = 'container'
     this.element.tabIndex = 0
     this.element.setAttribute('role', 'group')
@@ -36,7 +40,7 @@ export class ListMode implements RenderMode {
     this.element.addEventListener('keydown', this.handleKeyDown)
     this.element.addEventListener('focusin', this.handleFocusIn)
     this.content = context.document.createElement('div')
-    this.content.className = 'gondola-lyrics-player-list-content'
+    this.content.className = buildClassName('list-content')
     this.element.appendChild(this.content)
     context.container.element.appendChild(this.element)
     this.scroll = new ListScroll(this.element, context.requestUpdate)
@@ -158,7 +162,7 @@ export class ListMode implements RenderMode {
       this.scroll.reset()
     }
     const gap = Number.isFinite(list.gap) ? Math.max(0, list.gap) : DEFAULT.gap
-    this.content.style.setProperty('--gondola-lyrics-player-layout-gap', `${gap}px`)
+    this.content.style.setProperty(LAYOUT_GAP, `${gap}px`)
     this.content.style.textAlign = list.align
 
     const active = new Set(activeIndexes)
@@ -166,7 +170,7 @@ export class ListMode implements RenderMode {
     const lyricTime = this.context.player.currentTime + this.context.player.currentOffset
     for (const [index, line] of this.lines.entries()) {
       line.element.setAttribute('position', list.align)
-      line.element.style.setProperty('--gondola-lyrics-player-line-position', list.align)
+      line.element.style.setProperty(LINE_POSITION, list.align)
       line.updateState(active.has(index), current.has(index), lyricTime)
     }
     if (!this.element.matches(':focus-within')) {

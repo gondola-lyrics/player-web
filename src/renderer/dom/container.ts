@@ -1,3 +1,4 @@
+import { buildClassName } from './css'
 import { createStyles } from './styles'
 
 export class Container {
@@ -15,7 +16,7 @@ export class Container {
    */
   constructor(private readonly onResize: () => void) {
     this.element = document.createElement('div')
-    this.element.className = 'gondola-lyrics-player-root'
+    this.element.className = buildClassName('root')
     this.element.dataset.role = 'root'
     const identity = crypto.getRandomValues(new Uint32Array(2))
     this.element.dataset.instanceId = Array.from(identity, (part) => part.toString(16).padStart(8, '0')).join('')

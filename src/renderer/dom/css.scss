@@ -1,0 +1,32 @@
+$-namespace: gondola-lyrics-player;
+
+@function build-class-name($target) {
+  @return #{$-namespace}-#{$target};
+}
+
+@function build-root-variable-key($target) {
+  @return --#{$-namespace}-#{$target};
+}
+
+@function build-line-variable-key($target) {
+  @return build-root-variable-key($target);
+}
+
+@function build-root-variable($target, $default: null) {
+  @if $default == null or $default == '' {
+    @return var(#{build-root-variable-key($target)});
+  }
+  @return var(#{build-root-variable-key($target)}, #{$default});
+}
+
+@function build-line-variable($target, $default: null) {
+  @return build-root-variable($target, $default);
+}
+
+@mixin set-root-variable($target, $value) {
+  #{build-root-variable-key($target)}: #{$value};
+}
+
+@mixin set-line-variable($target, $value) {
+  #{build-line-variable-key($target)}: #{$value};
+}

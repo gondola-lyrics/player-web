@@ -4,6 +4,8 @@ import type { TimeCue } from '@root/renderer/dom/timeline'
 import { isTimeInTimeRange } from '@gondola-lyrics/model/common'
 import { getEnrichedLineContentText, hasEnrichedLineWords } from '@gondola-lyrics/model/enriched'
 
+import { buildClassName } from '@root/renderer/dom/css'
+
 import { TimedWords } from './words'
 
 type ContentSource = Pick<EnrichedLine, 'languages' | 'content' | 'time'>
@@ -27,7 +29,8 @@ export class ContentBlock {
     private readonly background = false,
   ) {
     this.element = document.createElement('div')
-    this.element.className = background ? 'gondola-lyrics-player-normal gondola-lyrics-player-background' : 'gondola-lyrics-player-normal'
+    this.element.className = buildClassName('normal')
+    this.element.classList.toggle(buildClassName('background'), background)
     this.element.dataset.role = 'line-normal'
     const language = source.languages.find((language) => language.trim().length > 0)
     if (language) {
@@ -58,7 +61,7 @@ export class ContentBlock {
       return
     }
     this.words?.dispose()
-    this.main.className = timed ? 'gondola-lyrics-player-syllable' : 'gondola-lyrics-player-plain'
+    this.main.className = buildClassName(timed ? 'syllable' : 'plain')
     if (timed) {
       this.words = new TimedWords(this.main, this.source.content!.words, this.source.time, this.background)
     } else {

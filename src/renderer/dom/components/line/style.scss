@@ -1,36 +1,38 @@
-.gondola-lyrics-player-wrapper[data-role='line'] {
+@use '@root/renderer/dom/css.scss' as *;
+
+.#{build-class-name('wrapper')}[data-role='line'] {
   position: relative;
   flex: none;
   min-width: 0;
   padding-block: 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: var(--gondola-lyrics-player-line-normal-base-font-size, 30px);
-  font-family: var(--gondola-lyrics-player-line-normal-base-font-family, inherit);
-  font-weight: var(--gondola-lyrics-player-line-normal-base-font-weight, 500);
+  font-size: build-line-variable('line-normal-base-font-size', 30px);
+  font-family: build-line-variable('line-normal-base-font-family', inherit);
+  font-weight: build-line-variable('line-normal-base-font-weight', 500);
 
   &:focus-visible {
     outline: 2px solid currentColor;
     outline-offset: 4px;
   }
 
-  &[active] > .gondola-lyrics-player-interlude {
+  &[active] > .#{build-class-name('interlude')} {
     opacity: 1;
   }
 }
 
-.gondola-lyrics-player-wrapper[data-role='line'] > .gondola-lyrics-player-backgrounds {
+.#{build-class-name('wrapper')}[data-role='line'] > .#{build-class-name('backgrounds')} {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-block-start: 12px;
 
-  > .gondola-lyrics-player-background {
+  > .#{build-class-name('background')} {
     font-size: 0.75em;
   }
 }
 
-.gondola-lyrics-player-interlude[data-role='line-interlude'] {
+.#{build-class-name('interlude')}[data-role='line-interlude'] {
   line-height: 1.35;
   letter-spacing: 0.3em;
   opacity: 0.4;
