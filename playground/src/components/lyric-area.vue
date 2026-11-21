@@ -37,11 +37,6 @@ onMounted(() => {
 
 .lyric-host {
   padding: 0;
-
-  :deep([data-role='container']) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--line) transparent;
-  }
 }
 
 .lyric-empty {

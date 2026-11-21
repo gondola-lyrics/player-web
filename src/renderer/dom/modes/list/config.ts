@@ -1,5 +1,40 @@
 import type { DeepRequired } from '@root/utils'
 
+export interface ListScrollAnimationConfig {
+  /**
+   * Switches between animated row movement and immediate positioning.
+   *
+   * @default true
+   */
+  enabled?: boolean
+  /**
+   * Controls the distribution of start times across rows.
+   *
+   * @default 'uniform'
+   */
+  mode?: 'uniform'
+  /**
+   * Automatic movement time in milliseconds, excluding the start delay. Zero positions immediately.
+   *
+   * @default 500
+   */
+  duration?: number
+  /**
+   * CSS timing function used for the movement.
+   *
+   * @default 'ease'
+   */
+  easing?: string
+  uniform?: {
+    /**
+     * Milliseconds before the whole list starts moving together.
+     *
+     * @default 0
+     */
+    delay?: number
+  }
+}
+
 export interface ListModeConfig {
   /**
    * Space between original lyric rows in pixels.
@@ -31,6 +66,7 @@ export interface ListModeConfig {
      * @default 3000
      */
     resumeDelay?: number
+    animation?: ListScrollAnimationConfig
   }
 }
 
@@ -39,5 +75,16 @@ export type ListModeConfigRequired = DeepRequired<ListModeConfig>
 export const DEFAULT: ListModeConfigRequired = Object.freeze({
   gap: 24,
   align: 'left',
-  scroll: Object.freeze({ follow: true, anchor: 50, resumeDelay: 3000 }),
+  scroll: Object.freeze({
+    follow: true,
+    anchor: 50,
+    resumeDelay: 3000,
+    animation: Object.freeze({
+      enabled: true,
+      mode: 'uniform',
+      duration: 500,
+      easing: 'ease',
+      uniform: Object.freeze({ delay: 0 }),
+    }),
+  }),
 })

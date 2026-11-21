@@ -4,19 +4,25 @@
   position: relative;
   height: 100%;
   min-height: 0;
-  overflow: hidden auto;
-  overscroll-behavior: contain;
-  scroll-behavior: auto;
-  overflow-anchor: none;
-  scrollbar-gutter: stable;
+  overflow: clip;
+  touch-action: pan-x pinch-zoom;
 }
 
 .#{build-class-name('container')}[data-role='container'] > .#{build-class-name('list-content')} {
-  position: relative;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: build-root-variable('layout-gap', 24px);
-  min-width: 0;
-  padding-inline: 24px;
+  position: absolute;
+  inset: 0;
+
+  > .#{build-class-name('wrapper')}[data-role='line'] {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 24px;
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &[animatable] > .#{build-class-name('wrapper')}[data-role='line'] {
+      transition: transform build-line-variable('line-animation-duration', 0ms) build-root-variable('scroll-easing', ease)
+        build-line-variable('line-animation-delay', 0ms);
+    }
+  }
 }

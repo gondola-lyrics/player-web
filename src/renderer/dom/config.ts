@@ -40,5 +40,11 @@ export const validateConfig = (path: DomRendererConfigKeys, value: unknown): boo
   if (path === 'modes.list.align') {
     return value === 'left' || value === 'center' || value === 'right'
   }
+  if (path === 'modes.list.scroll.animation.mode') {
+    return value === 'uniform'
+  }
+  if (path === 'modes.list.scroll.animation.duration' || path === 'modes.list.scroll.animation.uniform.delay') {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0
+  }
   return true
 }

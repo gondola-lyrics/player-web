@@ -38,8 +38,6 @@ export class LineObject {
     this.element.className = buildClassName('wrapper')
     this.element.dataset.role = 'line'
     this.element.dataset.lineIndex = String(index)
-    this.element.setAttribute('role', 'button')
-    this.element.tabIndex = -1
     this.main = null
     this.instrumental = null
 
@@ -70,7 +68,6 @@ export class LineObject {
     this.updateConfig(config)
     this.element.addEventListener('click', this.handleClick)
     this.element.addEventListener('contextmenu', this.handleContextMenu)
-    this.element.addEventListener('keydown', this.handleKeyDown)
   }
 
   private handleClick = (event: MouseEvent) => {
@@ -90,15 +87,6 @@ export class LineObject {
 
   private handleContextMenu = (event: MouseEvent) => {
     this.interactions.contextMenu(this.line, this.index, event)
-  }
-
-  private handleKeyDown = (event: KeyboardEvent) => {
-    if (event.target === this.element && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault()
-      if (!event.repeat) {
-        this.element.click()
-      }
-    }
   }
 
   /**
@@ -162,7 +150,6 @@ export class LineObject {
   dispose() {
     this.element.removeEventListener('click', this.handleClick)
     this.element.removeEventListener('contextmenu', this.handleContextMenu)
-    this.element.removeEventListener('keydown', this.handleKeyDown)
     for (const block of this.blocks) {
       block.dispose()
     }

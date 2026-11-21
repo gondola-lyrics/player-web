@@ -1,35 +1,29 @@
-import type { ListModeConfigRequired } from './config'
-
 import { DEFAULT } from './config'
 
-const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '])
 const MAX_TIMEOUT = 2 ** 31 - 1
+const TOUCH_STEP = 48
 
 export class ListScroll {
-  private config = DEFAULT.scroll
-  private enabled = false
-  private browsing = false
-  private pointerId: number | null = null
   private readonly touches = new Set<number>()
   private document: Document | null = null
-  private lastTop = 0
-  private viewportHeight = 0
-  private contentHeight = 0
+  private pointerId: number | null = null
+  private touchY: number | undefined
   private timer: ReturnType<typeof setTimeout> | null = null
   private resumeAt = 0
+  private resumeDelay = DEFAULT.scroll.resumeDelay
+  private canFollow = false
+  private lineCount = 0
+  private anchorIndex = 0
+  private browsing = false
 
-  /**
-   * Lets native wheel, touch and scrollbar input temporarily take over the viewport.
-   */
   constructor(
     private readonly element: HTMLElement,
     private readonly requestUpdate: () => void,
   ) {
-    element.addEventListener('scroll', this.handleScroll, { passive: true })
-    element.addEventListener('wheel', this.handleWheel, { passive: true })
-    element.addEventListener('keydown', this.handleKeyDown)
+    element.addEventListener('wheel', this.handleWheel, { passive: false })
     element.addEventListener('pointerdown', this.handlePointerDown, { capture: true, passive: true })
     element.addEventListener('touchstart', this.handleTouchStart, { capture: true, passive: true })
+    element.addEventListener('touchmove', this.handleTouchMove, { passive: false })
     this.syncDocument()
   }
 
@@ -39,17 +33,14 @@ export class ListScroll {
       return
     }
     this.unbindDocument()
-    this.pointerId = null
-    this.touches.clear()
+    this.clearInput()
     this.document = document
     document.addEventListener('pointerup', this.handlePointerUp, { capture: true, passive: true })
     document.addEventListener('pointercancel', this.handlePointerUp, { capture: true, passive: true })
     document.addEventListener('touchend', this.handleTouchEnd, { capture: true, passive: true })
     document.addEventListener('touchcancel', this.handleTouchEnd, { capture: true, passive: true })
     document.defaultView?.addEventListener('blur', this.handleBlur)
-    if (this.browsing) {
-      this.scheduleResume()
-    }
+    this.scheduleResume()
   }
 
   private unbindDocument() {
@@ -60,36 +51,12 @@ export class ListScroll {
     this.document?.defaultView?.removeEventListener('blur', this.handleBlur)
   }
 
-  private handleScroll = () => {
-    const top = this.element.scrollTop
-    const layoutChanged = this.element.clientHeight !== this.viewportHeight || this.element.scrollHeight !== this.contentHeight
-    this.recordDimensions()
-    if (top === this.lastTop) {
-      return
-    }
-    this.lastTop = top
-    if (layoutChanged && !this.browsing) {
-      this.requestUpdate()
-      return
-    }
-    this.browse()
-  }
-
-  private recordDimensions() {
-    this.viewportHeight = this.element.clientHeight
-    this.contentHeight = this.element.scrollHeight
-  }
-
   private handleWheel = (event: WheelEvent) => {
-    if (!event.defaultPrevented && event.deltaY !== 0) {
-      this.browse()
+    if (event.defaultPrevented || event.ctrlKey || event.deltaY === 0 || this.lineCount === 0) {
+      return
     }
-  }
-
-  private handleKeyDown = (event: KeyboardEvent) => {
-    if (!event.defaultPrevented && SCROLL_KEYS.has(event.key)) {
-      this.browse()
-    }
+    event.preventDefault()
+    this.browse(this.anchorIndex + Math.sign(event.deltaY))
   }
 
   private handlePointerDown = (event: PointerEvent) => {
@@ -103,9 +70,7 @@ export class ListScroll {
   private handlePointerUp = (event: PointerEvent) => {
     if (event.pointerId === this.pointerId) {
       this.pointerId = null
-      if (this.browsing) {
-        this.scheduleResume()
-      }
+      this.scheduleResume()
     }
   }
 
@@ -114,7 +79,22 @@ export class ListScroll {
     for (const touch of event.changedTouches) {
       this.touches.add(touch.identifier)
     }
+    this.touchY = event.touches.length === 1 ? event.touches[0]?.clientY : undefined
     this.clearTimer()
+  }
+
+  private handleTouchMove = (event: TouchEvent) => {
+    const touch = event.touches[0]
+    if (event.defaultPrevented || event.touches.length !== 1 || !touch || !this.touches.has(touch.identifier) || this.touchY === undefined) {
+      return
+    }
+    const steps = Math.trunc((this.touchY - touch.clientY) / TOUCH_STEP)
+    if (steps === 0 || this.lineCount === 0) {
+      return
+    }
+    event.preventDefault()
+    this.touchY -= steps * TOUCH_STEP
+    this.browse(this.anchorIndex + steps)
   }
 
   private handleTouchEnd = (event: TouchEvent) => {
@@ -122,29 +102,21 @@ export class ListScroll {
     for (const touch of event.changedTouches) {
       released = this.touches.delete(touch.identifier) || released
     }
-    if (released && this.browsing) {
+    if (released) {
+      this.touchY = undefined
       this.scheduleResume()
     }
   }
 
   private handleBlur = () => {
-    this.pointerId = null
-    this.touches.clear()
-    if (this.browsing) {
-      this.scheduleResume()
-    }
+    this.clearInput()
+    this.scheduleResume()
   }
 
-  /**
-   * Pauses following until manual input has ended, including touches retained after native pointer cancellation.
-   */
-  browse() {
-    if (!this.enabled) {
-      return
-    }
-    this.browsing = true
-    this.element.setAttribute('scrolling', '')
-    this.scheduleResume()
+  private clearInput() {
+    this.pointerId = null
+    this.touches.clear()
+    this.touchY = undefined
   }
 
   private clearTimer() {
@@ -156,10 +128,10 @@ export class ListScroll {
 
   private scheduleResume() {
     this.clearTimer()
-    if (this.pointerId !== null || this.touches.size > 0 || this.config.resumeDelay === Infinity) {
+    if (!this.canFollow || !this.browsing || this.pointerId !== null || this.touches.size > 0 || this.resumeDelay === Infinity) {
       return
     }
-    const delay = Number.isFinite(this.config.resumeDelay) ? Math.max(0, this.config.resumeDelay) : DEFAULT.scroll.resumeDelay
+    const delay = Number.isFinite(this.resumeDelay) ? Math.max(0, this.resumeDelay) : DEFAULT.scroll.resumeDelay
     this.resumeAt = performance.now() + delay
     this.timer = setTimeout(this.handleResume, Math.min(delay, MAX_TIMEOUT))
   }
@@ -175,56 +147,76 @@ export class ListScroll {
     this.requestUpdate()
   }
 
+  private clamp(index: number): number {
+    return Math.max(0, Math.min(index, this.lineCount - 1))
+  }
+
   /**
-   * Untimed lyrics and disabled following retain ordinary native scrolling.
+   * Tracks the playback anchor while leaving a manual selection in place until it expires.
    */
-  updateConfig(config: ListModeConfigRequired['scroll'], hasTiming: boolean) {
+  update(activeIndex: number | undefined, lineCount: number, resumeDelay: number) {
     this.syncDocument()
-    const delayChanged = config.resumeDelay !== this.config.resumeDelay
-    this.config = config
-    this.enabled = config.follow && hasTiming
-    if (!this.enabled) {
+    const canFollow = activeIndex !== undefined
+    const resumeChanged = canFollow !== this.canFollow || resumeDelay !== this.resumeDelay
+    if (canFollow && !this.canFollow) {
       this.reset()
-    } else if (this.browsing && delayChanged) {
+    }
+    this.canFollow = canFollow
+    this.lineCount = lineCount
+    this.resumeDelay = resumeDelay
+    this.anchorIndex = this.clamp(this.browsing ? this.anchorIndex : (activeIndex ?? this.anchorIndex))
+    if (this.browsing && resumeChanged) {
+      this.scheduleResume()
+    }
+  }
+
+  private browse(index: number) {
+    const next = this.clamp(index)
+    if (next !== this.anchorIndex) {
+      this.anchorIndex = next
+      this.browsing = true
+      this.element.setAttribute('scrolling', '')
+      this.requestUpdate()
+    }
+    if (this.browsing) {
       this.scheduleResume()
     }
   }
 
   /**
-   * Records the actual clamped position so its scroll event is not mistaken for manual input.
+   * Resolves the single index used to align the list.
    */
-  follow(top: number) {
-    this.recordDimensions()
-    if (!this.enabled || this.browsing || !Number.isFinite(top)) {
-      return
-    }
-    this.element.scrollTo({ top, behavior: 'instant' })
-    this.lastTop = this.element.scrollTop
+  get index(): number {
+    return this.anchorIndex
   }
 
   /**
-   * Explicit positioning and lyric replacement immediately restore following.
+   * Lets layout pick the shorter manual transition.
    */
-  reset() {
+  get isBrowsing(): boolean {
+    return this.browsing
+  }
+
+  /**
+   * Ends a manual selection after recovery, seek, or lyric replacement.
+   */
+  reset(index = this.anchorIndex) {
     this.clearTimer()
-    this.pointerId = null
-    this.touches.clear()
+    this.clearInput()
+    this.anchorIndex = index
     this.browsing = false
-    this.lastTop = this.element.scrollTop
-    this.recordDimensions()
     this.element.removeAttribute('scrolling')
   }
 
   /**
-   * Clears the recovery timer and every input subscription owned by this viewport.
+   * Releases the timer and document listeners when the mode is disposed.
    */
   dispose() {
     this.reset()
-    this.element.removeEventListener('scroll', this.handleScroll)
     this.element.removeEventListener('wheel', this.handleWheel)
-    this.element.removeEventListener('keydown', this.handleKeyDown)
     this.element.removeEventListener('pointerdown', this.handlePointerDown, true)
     this.element.removeEventListener('touchstart', this.handleTouchStart, true)
+    this.element.removeEventListener('touchmove', this.handleTouchMove)
     this.unbindDocument()
     this.document = null
   }
