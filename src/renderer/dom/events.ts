@@ -1,14 +1,14 @@
-import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
+import type { EnrichedLine, EnrichedLineBackground } from '@gondola-lyrics/model/enriched'
 
 export interface DomRendererEventMap {
   /**
-   * Includes clicks on background content and keyboard activation, retaining the original lyric index.
+   * Reports the clicked main or background source; index identifies its containing lyric line.
    */
-  'line-click': (line: EnrichedLine, index: number, event: MouseEvent) => void
+  'line-click': (line: EnrichedLine | EnrichedLineBackground, index: number, event: MouseEvent) => void
   /**
-   * Leaves default menu handling and any playback action to the host.
+   * Reports the main or background source without taking over the browser's menu or playback.
    */
-  'line-context-menu': (line: EnrichedLine, index: number, event: MouseEvent) => void
+  'line-context-menu': (line: EnrichedLine | EnrichedLineBackground, index: number, event: MouseEvent) => void
   /**
    * Emitted once after cleanup and before renderer listeners are removed.
    */

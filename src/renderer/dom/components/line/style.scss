@@ -6,6 +6,7 @@
   flex-direction: column;
   row-gap: 8px;
   min-width: 0;
+  cursor: pointer;
   line-height: 1.35;
   transition: opacity 0.6s ease;
 
@@ -45,7 +46,6 @@
   min-width: 0;
   padding-block: 8px;
   border-radius: 4px;
-  cursor: pointer;
   font-size: build-line-variable('line-normal-base-font-size', 30px);
   font-family: build-line-variable('line-normal-base-font-family', inherit);
   font-weight: build-line-variable('line-normal-base-font-weight', 500);
@@ -55,18 +55,17 @@
   }
 }
 
-.#{build-class-name('wrapper')}[data-role='line'] > .#{build-class-name('backgrounds')} {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.#{build-class-name('wrapper')}[data-role='line'] > .#{build-class-name('background')} {
   margin-block-start: 12px;
+  font-size: 0.75em;
 
-  > .#{build-class-name('background')} {
-    font-size: 0.75em;
+  + .#{build-class-name('background')} {
+    margin-block-start: 8px;
   }
 }
 
 .#{build-class-name('interlude')}[data-role='line-interlude'] {
+  cursor: pointer;
   line-height: 1.35;
   letter-spacing: 0.3em;
   opacity: 0.4;

@@ -1,4 +1,4 @@
-import type { LineObject } from '@root/renderer/dom/components/line/line'
+import type { LineElement } from '@root/renderer/dom/components/line/line'
 import type { ListModeConfigRequired } from './config'
 
 import { buildLineVariableKey, buildRootVariableKey } from '@root/renderer/dom/css'
@@ -50,7 +50,7 @@ export class ListLayout {
   /**
    * Accumulates natural row heights independently of their current translations.
    */
-  measure(lines: readonly LineObject[], gap: number) {
+  measure(lines: readonly LineElement[], gap: number) {
     let top = 0
     this.rows = lines.map((line) => {
       const { height, anchorY } = line.measure()

@@ -7,7 +7,7 @@ import type { ListModeConfigRequired } from './config'
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
 import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
-import { LineObject } from '@root/renderer/dom/components/line/line'
+import { LineElement } from '@root/renderer/dom/components/line/line'
 import { RenderTimeline } from '@root/renderer/dom/timeline'
 
 import { DEFAULT } from './config'
@@ -24,7 +24,7 @@ export class ListMode implements RenderMode {
   private readonly scroll: ListScroll
   private readonly timeline = new RenderTimeline()
   private fonts: FontFaceSet
-  private lines: LineObject[] = []
+  private lines: LineElement[] = []
   private layoutDirty = true
   private isDisposed = false
 
@@ -62,7 +62,7 @@ export class ListMode implements RenderMode {
 
     const { document, player, config, onLineClick, onLineContextMenu } = this.context
     this.lines = player.currentInfo.lines.map((line, index) => {
-      return new LineObject(document, line, index, config.current.line, {
+      return new LineElement(document, line, index, config.current.line, {
         click: onLineClick,
         contextMenu: onLineContextMenu,
       })
