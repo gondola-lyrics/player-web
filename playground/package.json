@@ -13,7 +13,8 @@
     "check": "vue-tsc --noEmit",
     "build": "npm run check && vite build",
     "preview": "vite preview",
-    "format": "prettier --write src index.html vite.config.ts tsconfig.json package.json"
+    "format": "prettier --write src index.html vite.config.ts tsconfig.json package.json",
+    "format:check": "prettier --check src index.html vite.config.ts tsconfig.json package.json"
   },
   "dependencies": {
     "@gondola-lyrics/kit": "0.7.0",

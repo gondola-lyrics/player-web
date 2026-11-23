@@ -8,27 +8,135 @@ import type { useSettings } from '../../composables/useSettings'
 import { NButton, NCollapse, NCollapseItem, NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { computed } from 'vue'
 
-const props = defineProps<{ player: ReturnType<typeof usePlayer>; settings: ReturnType<typeof useSettings>; i18n: ReturnType<typeof useI18n> }>()
+const props = defineProps<{
+  player: ReturnType<typeof usePlayer>
+  settings: ReturnType<typeof useSettings>
+  i18n: ReturnType<typeof useI18n>
+}>()
 const core = computed(() => props.settings.coreConfig.value)
 const renderer = computed(() => props.settings.rendererConfig.value)
-const drivers = computed(() => [
-  { value: 'animation', label: props.i18n.t('settings.animation') },
-  { value: 'timer', label: props.i18n.t('settings.timer') },
-])
-const aligns = computed(() => [
-  { value: 'left', label: props.i18n.t('settings.left') },
-  { value: 'center', label: props.i18n.t('settings.center') },
-  { value: 'right', label: props.i18n.t('settings.right') },
-])
+const autoResume = computed(() => renderer.value.modes.list.scroll.resumeDelay !== Infinity)
+
+const drivers = computed(() => {
+  return [
+    { value: 'animation', label: props.i18n.t('settings.animation') },
+    { value: 'timer', label: props.i18n.t('settings.timer') },
+  ]
+})
+
+const aligns = computed(() => {
+  return [
+    { value: 'left', label: props.i18n.t('settings.left') },
+    { value: 'center', label: props.i18n.t('settings.center') },
+    { value: 'right', label: props.i18n.t('settings.right') },
+  ]
+})
+
 const corePatch = (value: CorePlayerConfig) => {
   props.player.core.config.merge(value)
 }
+
 const rendererPatch = (value: DomRendererConfig) => {
   props.player.renderer.config.merge(value)
 }
-const number = (value: number | null, apply: (value: number) => void) => {
-  if (value !== null && Number.isFinite(value)) {
-    apply(value)
+
+const isFiniteNumber = (value: number | null): value is number => {
+  return value !== null && Number.isFinite(value)
+}
+
+const updateDriver = (value: unknown) => {
+  if (value === 'animation' || value === 'timer') {
+    corePatch({ driver: value })
+  }
+}
+
+const updateBridge = (value: boolean) => {
+  corePatch({ bridgeActive: value })
+}
+
+const updateMergeWindow = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    corePatch({ mergeWindow: value })
+  }
+}
+
+const updateMergeLimit = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    corePatch({ mergeLimit: value })
+  }
+}
+
+const updateGlobalOffset = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    corePatch({ offset: { global: value } })
+  }
+}
+
+const updateMetadataOffset = (value: boolean) => {
+  corePatch({ offset: { useMeta: value } })
+}
+
+const updateResetTemporaryOffset = (value: boolean) => {
+  corePatch({ offset: { resetTempOnLyricChange: value } })
+}
+
+const updateTemporaryOffset = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    props.settings.setTemporaryOffset(value)
+  }
+}
+
+const updateFontSize = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    rendererPatch({ line: { font: { size: value } } })
+  }
+}
+
+const updateFontWeight = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    rendererPatch({ line: { font: { weight: value } } })
+  }
+}
+
+const updateFontFamily = (value: string) => {
+  rendererPatch({ line: { font: { family: value } } })
+}
+
+const updateWordHighlight = (value: boolean) => {
+  rendererPatch({ line: { words: { enabled: value } } })
+}
+
+const updateGap = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    rendererPatch({ modes: { list: { gap: value } } })
+  }
+}
+
+const updateAlignment = (value: unknown) => {
+  if (value === 'left' || value === 'center' || value === 'right') {
+    rendererPatch({ modes: { list: { align: value } } })
+  }
+}
+
+const updateFollow = (value: boolean) => {
+  rendererPatch({ modes: { list: { scroll: { follow: value } } } })
+}
+
+const updateAnchor = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    rendererPatch({ modes: { list: { scroll: { anchor: value } } } })
+  }
+}
+
+const updateAutoResume = (value: boolean) => {
+  const resumeDelay = value ? 3000 : Infinity
+
+  rendererPatch({ modes: { list: { scroll: { resumeDelay } } } })
+}
+
+const updateResumeDelay = (value: number | null) => {
+  if (isFiniteNumber(value)) {
+    rendererPatch({ modes: { list: { scroll: { resumeDelay: value } } } })
   }
 }
 </script>
@@ -37,123 +145,80 @@ const number = (value: number | null, apply: (value: number) => void) => {
   <NCollapse :default-expanded-names="['core', 'renderer']">
     <NCollapseItem name="core" :title="i18n.t('settings.core')">
       <NForm label-placement="top" size="small">
-        <NFormItem :label="i18n.t('settings.driver')"
-          ><NSelect :value="core.driver" :options="drivers" @update:value="corePatch({ driver: $event as CorePlayerConfig['driver'] })"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('settings.bridge')"
-          ><NSwitch :value="core.bridgeActive" @update:value="corePatch({ bridgeActive: $event })"
-        /></NFormItem>
+        <NFormItem :label="i18n.t('settings.driver')">
+          <NSelect :value="core.driver" :options="drivers" @update:value="updateDriver" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('settings.bridge')">
+          <NSwitch :value="core.bridgeActive" @update:value="updateBridge" />
+        </NFormItem>
         <div class="field-pair">
-          <NFormItem :label="i18n.t('settings.mergeWindow')"
-            ><NInputNumber :value="core.mergeWindow" :min="0" :step="50" @update:value="number($event, (value) => corePatch({ mergeWindow: value }))"
-          /></NFormItem>
-          <NFormItem :label="i18n.t('settings.mergeLimit')"
-            ><NInputNumber
-              :value="core.mergeLimit"
-              :min="0"
-              :precision="0"
-              @update:value="number($event, (value) => corePatch({ mergeLimit: value }))"
-          /></NFormItem>
+          <NFormItem :label="i18n.t('settings.mergeWindow')">
+            <NInputNumber :value="core.mergeWindow" :min="0" :step="50" @update:value="updateMergeWindow" />
+          </NFormItem>
+          <NFormItem :label="i18n.t('settings.mergeLimit')">
+            <NInputNumber :value="core.mergeLimit" :min="0" :precision="0" @update:value="updateMergeLimit" />
+          </NFormItem>
         </div>
         <NFormItem :label="i18n.t('settings.offset')">
           <div class="full-width">
-            <NInputNumber
-              :value="core.offset.global"
-              :step="50"
-              :precision="0"
-              @update:value="number($event, (value) => corePatch({ offset: { global: value } }))"
-            />
+            <NInputNumber :value="core.offset.global" :step="50" :precision="0" @update:value="updateGlobalOffset" />
             <div class="field-hint">{{ i18n.t('settings.offsetHint') }}</div>
           </div>
         </NFormItem>
-        <NFormItem :label="i18n.t('settings.meta')"
-          ><NSwitch :value="core.offset.useMeta" @update:value="corePatch({ offset: { useMeta: $event } })"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('settings.resetTemp')"
-          ><NSwitch :value="core.offset.resetTempOnLyricChange" @update:value="corePatch({ offset: { resetTempOnLyricChange: $event } })"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('settings.temp')"
-          ><NInputNumber
-            :value="settings.temporaryOffset.value"
-            :step="50"
-            :precision="0"
-            @update:value="number($event, settings.setTemporaryOffset)"
-        /></NFormItem>
-        <NButton size="small" secondary data-testid="reset-core" @click="settings.reset('core')">{{ i18n.t('settings.reset') }}</NButton>
+        <NFormItem :label="i18n.t('settings.meta')">
+          <NSwitch :value="core.offset.useMeta" @update:value="updateMetadataOffset" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('settings.resetTemp')">
+          <NSwitch :value="core.offset.resetTempOnLyricChange" @update:value="updateResetTemporaryOffset" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('settings.temp')">
+          <NInputNumber :value="settings.temporaryOffset.value" :step="50" :precision="0" @update:value="updateTemporaryOffset" />
+        </NFormItem>
+        <NButton size="small" secondary data-testid="reset-core" @click="settings.reset('core')">
+          {{ i18n.t('settings.reset') }}
+        </NButton>
       </NForm>
     </NCollapseItem>
     <NCollapseItem name="renderer" :title="i18n.t('settings.renderer')">
       <NForm label-placement="top" size="small">
         <div class="field-pair">
-          <NFormItem :label="i18n.t('settings.fontSize')"
-            ><NInputNumber
-              :value="renderer.line.font.size"
-              :min="1"
-              :max="160"
-              data-testid="font-size"
-              @update:value="number($event, (value) => rendererPatch({ line: { font: { size: value } } }))"
-          /></NFormItem>
-          <NFormItem :label="i18n.t('settings.fontWeight')"
-            ><NInputNumber
-              :value="renderer.line.font.weight"
-              :min="1"
-              :max="1000"
-              :step="100"
-              @update:value="number($event, (value) => rendererPatch({ line: { font: { weight: value } } }))"
-          /></NFormItem>
+          <NFormItem :label="i18n.t('settings.fontSize')">
+            <NInputNumber :value="renderer.line.font.size" :min="1" :max="160" data-testid="font-size" @update:value="updateFontSize" />
+          </NFormItem>
+          <NFormItem :label="i18n.t('settings.fontWeight')">
+            <NInputNumber :value="renderer.line.font.weight" :min="1" :max="1000" :step="100" @update:value="updateFontWeight" />
+          </NFormItem>
         </div>
-        <NFormItem :label="i18n.t('settings.fontFamily')"
-          ><NInput
-            :value="renderer.line.font.family"
-            :placeholder="i18n.t('settings.fontFamilyHint')"
-            @update:value="rendererPatch({ line: { font: { family: $event } } })"
-        /></NFormItem>
+        <NFormItem :label="i18n.t('settings.fontFamily')">
+          <NInput :value="renderer.line.font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
+        </NFormItem>
         <NFormItem :label="i18n.t('settings.wordHighlight')">
-          <NSwitch
-            :value="renderer.line.words.enabled"
-            :aria-label="i18n.t('settings.wordHighlight')"
-            @update:value="rendererPatch({ line: { words: { enabled: $event } } })"
-          />
+          <NSwitch :value="renderer.line.words.enabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
         </NFormItem>
         <div class="field-pair">
-          <NFormItem :label="i18n.t('settings.gap')"
-            ><NInputNumber
-              :value="renderer.modes.list.gap"
-              :min="0"
-              :max="300"
-              @update:value="number($event, (value) => rendererPatch({ modes: { list: { gap: value } } }))"
-          /></NFormItem>
-          <NFormItem :label="i18n.t('settings.align')"
-            ><NSelect
-              :value="renderer.modes.list.align"
-              :options="aligns"
-              @update:value="rendererPatch({ modes: { list: { align: $event as 'left' | 'center' | 'right' } } })"
-          /></NFormItem>
+          <NFormItem :label="i18n.t('settings.gap')">
+            <NInputNumber :value="renderer.modes.list.gap" :min="0" :max="300" @update:value="updateGap" />
+          </NFormItem>
+          <NFormItem :label="i18n.t('settings.align')">
+            <NSelect :value="renderer.modes.list.align" :options="aligns" @update:value="updateAlignment" />
+          </NFormItem>
         </div>
-        <NFormItem :label="i18n.t('settings.follow')"
-          ><NSwitch :value="renderer.modes.list.scroll.follow" @update:value="rendererPatch({ modes: { list: { scroll: { follow: $event } } } })"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('settings.anchor')"
-          ><NInputNumber
-            :value="renderer.modes.list.scroll.anchor"
-            :min="0"
-            :max="100"
-            @update:value="number($event, (value) => rendererPatch({ modes: { list: { scroll: { anchor: value } } } }))"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('settings.autoResume')"
-          ><NSwitch
-            :value="renderer.modes.list.scroll.resumeDelay !== Infinity"
-            @update:value="rendererPatch({ modes: { list: { scroll: { resumeDelay: $event ? 3000 : Infinity } } } })"
-        /></NFormItem>
-        <NFormItem v-if="renderer.modes.list.scroll.resumeDelay !== Infinity" :label="i18n.t('settings.resumeDelay')"
-          ><NInputNumber
-            :value="renderer.modes.list.scroll.resumeDelay"
-            :min="0"
-            :step="250"
-            @update:value="number($event, (value) => rendererPatch({ modes: { list: { scroll: { resumeDelay: value } } } }))"
-        /></NFormItem>
+        <NFormItem :label="i18n.t('settings.follow')">
+          <NSwitch :value="renderer.modes.list.scroll.follow" @update:value="updateFollow" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('settings.anchor')">
+          <NInputNumber :value="renderer.modes.list.scroll.anchor" :min="0" :max="100" @update:value="updateAnchor" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('settings.autoResume')">
+          <NSwitch :value="autoResume" @update:value="updateAutoResume" />
+        </NFormItem>
+        <NFormItem v-if="autoResume" :label="i18n.t('settings.resumeDelay')">
+          <NInputNumber :value="renderer.modes.list.scroll.resumeDelay" :min="0" :step="250" @update:value="updateResumeDelay" />
+        </NFormItem>
         <div class="field-hint reset-hint">{{ i18n.t('settings.resumeHint') }}</div>
-        <NButton size="small" secondary data-testid="reset-renderer" @click="settings.reset('renderer')">{{ i18n.t('settings.reset') }}</NButton>
+        <NButton size="small" secondary data-testid="reset-renderer" @click="settings.reset('renderer')">
+          {{ i18n.t('settings.reset') }}
+        </NButton>
       </NForm>
     </NCollapseItem>
   </NCollapse>

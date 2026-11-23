@@ -14,6 +14,15 @@ export type Locale = 'zh-CN' | 'en-US'
 export const useI18n = () => {
   const saved = readStorage('gondola-player-locale-v1')
   const locale = ref<Locale>(saved === 'en-US' ? 'en-US' : 'zh-CN')
+
+  const t = (key: MessageKey, parameters?: Record<string, string | number>): string => {
+    const message = (locale.value === 'zh-CN' ? ZH : EN)[key]
+
+    return message.replace(/\{(\w+)\}/g, (_, name: string) => {
+      return String(parameters?.[name] ?? '')
+    })
+  }
+
   watch(
     locale,
     (value) => {
@@ -22,11 +31,6 @@ export const useI18n = () => {
     },
     { immediate: true },
   )
-  const t = (key: MessageKey, parameters?: Record<string, string | number>): string => {
-    const message = (locale.value === 'zh-CN' ? ZH : EN)[key]
-    return message.replace(/\{(\w+)\}/g, (_, name: string) => {
-      return String(parameters?.[name] ?? '')
-    })
-  }
+
   return { locale, t }
 }

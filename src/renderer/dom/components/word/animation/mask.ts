@@ -39,6 +39,13 @@ interface MaskGroup {
   time: number
 }
 
+interface WordRect {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
 const maskGradient = (width: number, feather: number): string => {
   const imageWidth = 2 * width + feather
   const bright = (width / imageWidth) * 100
@@ -46,15 +53,8 @@ const maskGradient = (width: number, feather: number): string => {
   return `linear-gradient(to right, rgba(0, 0, 0, ${MASK_ACTIVE_OPACITY}) ${bright}%, rgba(0, 0, 0, ${MASK_NORMAL_OPACITY}) ${dim}%)`
 }
 
-const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
-  const width = wipe.clientWidth
-  const height = word.clientHeight
-  const single = { width, feather: height * 0.5, layers: [] }
-  if (width === 0 || height === 0) {
-    return single
-  }
-
-  const rects: { left: number; right: number; top: number; bottom: number }[] = []
+const measureWordRects = (word: HTMLElement): WordRect[] => {
+  const rects: WordRect[] = []
   if (word.children.length) {
     // Character offsets remain in layout coordinates while emphasis scales and lifts the glyphs.
     for (const char of Array.from(word.children) as HTMLElement[]) {
@@ -65,24 +65,32 @@ const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
         bottom: char.offsetTop + char.offsetHeight,
       })
     }
-  } else {
-    const range = word.ownerDocument.createRange()
-    range.selectNodeContents(word)
-    const origin = word.getBoundingClientRect()
-    const scaleX = origin.width / word.offsetWidth || 1
-    const scaleY = origin.height / word.offsetHeight || 1
-    for (const rect of range.getClientRects()) {
-      if (rect.width > 0 && rect.height > 0) {
-        rects.push({
-          left: (rect.left - origin.left) / scaleX,
-          right: (rect.right - origin.left) / scaleX,
-          top: (rect.top - origin.top) / scaleY,
-          bottom: (rect.bottom - origin.top) / scaleY,
-        })
-      }
+
+    return rects
+  }
+
+  const range = word.ownerDocument.createRange()
+  range.selectNodeContents(word)
+  const origin = word.getBoundingClientRect()
+  const scaleX = origin.width / word.offsetWidth || 1
+  const scaleY = origin.height / word.offsetHeight || 1
+
+  for (const rect of range.getClientRects()) {
+    if (rect.width > 0 && rect.height > 0) {
+      rects.push({
+        left: (rect.left - origin.left) / scaleX,
+        right: (rect.right - origin.left) / scaleX,
+        top: (rect.top - origin.top) / scaleY,
+        bottom: (rect.bottom - origin.top) / scaleY,
+      })
     }
   }
-  const rows: { left: number; right: number; top: number; bottom: number }[] = []
+
+  return rects
+}
+
+const mergeRowRects = (rects: readonly WordRect[]): WordRect[] => {
+  const rows: WordRect[] = []
   for (const rect of rects) {
     const previous = rows.at(-1)
     const center = (rect.top + rect.bottom) / 2
@@ -95,13 +103,16 @@ const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
       rows.push({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom })
     }
   }
-  if (rows.length < 2) {
-    return single
-  }
+
+  return rows
+}
+
+const buildMaskLayers = (rows: readonly WordRect[], width: number, height: number): MaskLayer[] => {
   const leading = Math.max(0, rows[0]!.left)
   const trailing = Math.max(0, width - Math.max(...rows.map((row) => row.right)))
   let top = 0
-  const layers = rows.map((row, index) => {
+
+  return rows.map((row, index) => {
     const next = rows[index + 1]
     const bottom = next ? (row.bottom + next.top) / 2 : height
     const left = Math.max(0, row.left - leading)
@@ -109,8 +120,36 @@ const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
     top = bottom
     return layer
   })
+}
+
+const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
+  const width = wipe.clientWidth
+  const height = word.clientHeight
+  const single: MaskGeometry = { width, feather: height * 0.5, layers: [] }
+  if (width === 0 || height === 0) {
+    return single
+  }
+
+  const rows = mergeRowRects(measureWordRects(word))
+  if (rows.length < 2) {
+    return single
+  }
+
+  const layers = buildMaskLayers(rows, width, height)
   const virtualWidth = layers.reduce((sum, layer) => sum + layer.width, 0)
   return { width: virtualWidth, feather: (height / layers.length) * 0.5, layers }
+}
+
+const sampleLineTime = (time: number, lineTime?: TimeRange): number => {
+  if (time < (lineTime?.start ?? -Infinity)) {
+    return -Infinity
+  }
+
+  if (time >= (lineTime?.end ?? Infinity)) {
+    return Infinity
+  }
+
+  return time
 }
 
 const applyGeometry = (part: MaskPart, geometry: MaskGeometry) => {
@@ -119,6 +158,7 @@ const applyGeometry = (part: MaskPart, geometry: MaskGeometry) => {
   if (geometry.width === 0) {
     return
   }
+
   const { width, feather, layers } = geometry
   const style = part.wipe.style
   if (layers.length === 0) {
@@ -135,16 +175,19 @@ const paintWord = (part: MaskPart, cursor: number) => {
   if (!geometry || geometry.width === 0) {
     return
   }
+
   const { width, feather, layers } = geometry
   const position = Math.min(0, Math.max(-width - feather, cursor - part.start - width - 2 * feather))
   if (position === part.position) {
     return
   }
+
   part.position = position
   if (layers.length === 0) {
     part.wipe.style.maskPosition = `${position}px 0`
     return
   }
+
   let remaining = width
   part.wipe.style.maskPosition = layers
     .map((layer) => {
@@ -173,13 +216,15 @@ export class MaskAnimationHost {
       }
       group.parts.push({ ...word, start: 0 })
     }
+
     for (const group of this.groups) {
       const sync = (time: number) => {
-        const sample = time < (lineTime?.start ?? -Infinity) ? -Infinity : time >= (lineTime?.end ?? Infinity) ? Infinity : time
+        const sample = sampleLineTime(time, lineTime)
         if (sample !== group.time) {
           this.paintGroup(group, sample)
         }
       }
+
       for (const { range } of group.parts) {
         this.cues.push({
           range,
@@ -189,6 +234,7 @@ export class MaskAnimationHost {
           },
         })
       }
+
       if (lineTime) {
         this.cues.push({
           range: lineTime,
@@ -208,12 +254,14 @@ export class MaskAnimationHost {
     for (const group of this.groups) {
       const geometry = group.parts.map(measureWord)
       let width = 0
+
       for (const [index, part] of group.parts.entries()) {
         const measured = geometry[index]!
         part.start = width
         width += measured.width
         applyGeometry(part, measured)
       }
+
       this.paintGroup(group, group.time)
     }
   }
@@ -224,15 +272,18 @@ export class MaskAnimationHost {
     while (group.index > 0 && time < parts[group.index]!.range.start) {
       group.index--
     }
+
     while (group.index + 1 < parts.length && time >= parts[group.index + 1]!.range.start) {
       group.index++
     }
+
     const part = parts[group.index]!
     const { range } = part
     const progress = getTimeRangeProgress(range, time) ?? Number(time >= range.start)
     const distance = part.start + (part.geometry?.width ?? 0) * progress
     const entry = group.index === 0 ? progress : 1
     const exit = group.index === parts.length - 1 ? progress : 0
+
     for (const target of parts) {
       const feather = target.geometry?.feather ?? 0
       paintWord(target, distance + feather * (1.5 * entry + 0.5 * exit))

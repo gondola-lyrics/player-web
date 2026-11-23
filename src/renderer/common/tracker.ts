@@ -52,6 +52,7 @@ export class ChangeTracker<Key extends string> {
     if (this.isDisposed) {
       return
     }
+
     this.lyricChanged ||= changes.lyric === true
     this.sizeChanged ||= changes.size === true
     this.seeked ||= changes.seek === true
@@ -70,10 +71,12 @@ export class ChangeTracker<Key extends string> {
       seek: this.seeked,
       config: this.configChanges,
     }
+
     this.lyricChanged = false
     this.sizeChanged = false
     this.seeked = false
     this.configChanges = new Set()
+
     return changes
   }
 
@@ -84,10 +87,13 @@ export class ChangeTracker<Key extends string> {
     if (this.isDisposed) {
       return
     }
+
     this.isDisposed = true
+
     for (const event of RENDER_EVENTS) {
       this.player.event.remove(event, this.handleUpdate)
     }
+
     this.player.event.remove('seek', this.handleSeek)
     this.player.event.remove('lyric-update', this.handleLyricUpdate)
     this.player.event.remove('dispose', this.handlePlayerDispose)

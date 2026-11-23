@@ -24,6 +24,7 @@ export const createStyles = (root: StyleRoot): (() => void) => {
     roots.delete(root)
     entry = undefined
   }
+
   if (!entry) {
     let sheet = sheets.get(document)
     if (!sheet) {
@@ -31,16 +32,20 @@ export const createStyles = (root: StyleRoot): (() => void) => {
       sheet.replaceSync(STYLES)
       sheets.set(document, sheet)
     }
+
     root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet]
     entry = { document, sheet, users: 0 }
     roots.set(root, entry)
   }
+
   entry.users++
   let released = false
+
   return () => {
     if (released) {
       return
     }
+
     released = true
     entry.users--
     if (entry.users === 0 && roots.get(root) === entry) {

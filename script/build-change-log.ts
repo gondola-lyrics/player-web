@@ -1,5 +1,5 @@
 /**
- * Builds the changelog section of one release.
+ * Generates, extracts or rebuilds release notes from recorded commits and tags.
  *
  * Usage:
  *   npm run build-change-log -- <version> [--dry-run]
@@ -50,6 +50,13 @@ interface Commit {
   scope: string | undefined
   message: string
   breaking: string[]
+}
+
+type ChangelogCommand = 'build' | 'preview' | 'extract' | 'check-bump' | 'rebuild'
+
+interface ChangelogArguments {
+  command: ChangelogCommand
+  positionals: string[]
 }
 
 const git = (...args: string[]): string => {
@@ -122,42 +129,47 @@ const previousTag = (version: string): string | null => {
   return `${TAG_PREFIX}${latest}`
 }
 
+const parseCommit = (raw: string): Commit | null => {
+  const record = raw.replace(/^\n+|\n+$/g, '')
+  if (record === '') {
+    return null
+  }
+
+  const parts = record.split('\x1f')
+  const full = parts[0] ?? ''
+  const short = parts[1] ?? ''
+  const subject = parts[2] ?? ''
+  const body = parts.slice(3).join('\x1f')
+
+  const match = SUBJECT_PATTERN.exec(subject)
+  const kind = match?.groups?.kind
+  const scope = match?.groups?.scope
+  const message = match?.groups?.message
+  if (kind === undefined || message === undefined || !TYPE_TITLES.has(kind)) {
+    return null
+  }
+  if (scope !== undefined && EXCLUDED_SCOPES.has(scope)) {
+    return null
+  }
+
+  const breaking = body.split(/\r?\n/).flatMap((line) => {
+    const text = BREAKING_PATTERN.exec(line.trim())?.groups?.text?.trim()
+    return text === undefined ? [] : [text]
+  })
+
+  return { full, short, kind, scope, message, breaking }
+}
+
 const collectCommits = (since: string | null, until = 'HEAD'): Commit[] => {
   const revision = since === null ? until : `${since}..${until}`
   const output = git('log', revision, '--format=%H%x1f%h%x1f%s%x1f%b%x1e')
   const commits: Commit[] = []
 
   for (const raw of output.split('\x1e')) {
-    const record = raw.replace(/^\n+|\n+$/g, '')
-    if (record === '') {
-      continue
+    const commit = parseCommit(raw)
+    if (commit) {
+      commits.push(commit)
     }
-
-    const parts = record.split('\x1f')
-    const full = parts[0] ?? ''
-    const short = parts[1] ?? ''
-    const subject = parts[2] ?? ''
-    const body = parts.slice(3).join('\x1f')
-    const match = SUBJECT_PATTERN.exec(subject)
-    const kind = match?.groups?.kind
-    const scope = match?.groups?.scope
-    const message = match?.groups?.message
-    if (kind === undefined || message === undefined) {
-      continue
-    }
-    if (!TYPE_TITLES.has(kind)) {
-      continue
-    }
-    if (scope !== undefined && EXCLUDED_SCOPES.has(scope)) {
-      continue
-    }
-
-    const breaking = body.split(/\r?\n/).flatMap((line) => {
-      const text = BREAKING_PATTERN.exec(line.trim())?.groups?.text?.trim()
-      return text === undefined ? [] : [text]
-    })
-
-    commits.push({ full, short, kind, scope, message, breaking })
   }
 
   return commits
@@ -318,7 +330,7 @@ const checkBump = (version: string, existing: string | null) => {
   }
 }
 
-const main = () => {
+const readArguments = (): ChangelogArguments => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -329,19 +341,24 @@ const main = () => {
     },
   })
 
-  const version = positionals[0]
   if ([values['dry-run'], values.extract, values['check-bump'], values.rebuild].filter(Boolean).length > 1) {
     return fail('--dry-run, --extract, --check-bump and --rebuild are mutually exclusive')
   }
-  const existing = readFile(CHANGE_LOG_FILE)
+
   if (values.rebuild) {
-    if (positionals.length > 0) {
-      return fail('--rebuild regenerates recorded releases and does not take a version')
-    }
-    writeFile(CHANGE_LOG_FILE, rebuildChangelog(existing, repoUrl()))
-    console.log(`rebuilt ${CHANGE_LOG_FILE}`)
-    return
+    return { command: 'rebuild', positionals }
   }
+  if (values.extract) {
+    return { command: 'extract', positionals }
+  }
+  if (values['check-bump']) {
+    return { command: 'check-bump', positionals }
+  }
+
+  return { command: values['dry-run'] ? 'preview' : 'build', positionals }
+}
+
+const readVersion = (version: string | undefined): string => {
   if (version === undefined) {
     return fail('usage: build-change-log <version> [--dry-run | --extract | --check-bump] | --rebuild')
   }
@@ -349,28 +366,34 @@ const main = () => {
     return fail(`not a semantic version: ${version}`)
   }
 
-  const recorded = existing === null ? null : extractSection(existing, version)
+  return version
+}
 
-  if (values.extract) {
-    if (recorded === null) {
-      return fail(`${CHANGE_LOG_FILE} has no section for v${version}`)
-    }
-    process.stdout.write(recorded)
-    return
+const commandRebuild = (existing: string | null, positionals: string[]) => {
+  if (positionals.length > 0) {
+    return fail('--rebuild regenerates recorded releases and does not take a version')
   }
 
-  // Release preparation checks ordering before changing the manifest.
-  if (values['check-bump']) {
-    checkBump(version, existing)
-    return
+  writeFile(CHANGE_LOG_FILE, rebuildChangelog(existing, repoUrl()))
+  console.log(`rebuilt ${CHANGE_LOG_FILE}`)
+}
+
+const commandExtract = (version: string, recorded: string | null) => {
+  if (recorded === null) {
+    return fail(`${CHANGE_LOG_FILE} has no section for v${version}`)
   }
 
+  process.stdout.write(recorded)
+}
+
+const commandBuild = (version: string, existing: string | null, recorded: string | null, preview: boolean) => {
   // Writing a version twice would leave two sections, and extraction only ever reaches the first.
-  if (recorded !== null && !values['dry-run']) {
+  if (recorded !== null && !preview) {
     return fail(`${CHANGE_LOG_FILE} already has a section for v${version}`)
   }
+
   // Previewing an existing release does not change the recorded version order.
-  if (!values['dry-run']) {
+  if (!preview) {
     checkBump(version, existing)
   }
 
@@ -378,13 +401,36 @@ const main = () => {
   const commits = collectCommits(since)
   const section = buildSection(version, commits, repoUrl(), new Date())
 
-  if (values['dry-run']) {
+  if (preview) {
     process.stdout.write(section)
     return
   }
 
   writeFile(CHANGE_LOG_FILE, existing === null ? section : `${section}\n${existing}`)
   console.log(`wrote ${CHANGE_LOG_FILE} for v${version}`)
+}
+
+const main = () => {
+  const { command, positionals } = readArguments()
+  const existing = readFile(CHANGE_LOG_FILE)
+  if (command === 'rebuild') {
+    return commandRebuild(existing, positionals)
+  }
+
+  const version = readVersion(positionals[0])
+  const recorded = existing === null ? null : extractSection(existing, version)
+
+  switch (command) {
+    case 'extract':
+      return commandExtract(version, recorded)
+    case 'check-bump':
+      // Release preparation checks ordering before changing the manifest.
+      return checkBump(version, existing)
+    case 'preview':
+      return commandBuild(version, existing, recorded, true)
+    case 'build':
+      return commandBuild(version, existing, recorded, false)
+  }
 }
 
 main()

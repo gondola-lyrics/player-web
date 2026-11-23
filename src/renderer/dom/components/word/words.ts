@@ -17,19 +17,23 @@ export class TimedWords {
     const document = text.ownerDocument
     const fragment = document.createDocumentFragment()
     const masked: MaskWord[] = []
+
     for (const word of words) {
       if (word.type !== EnrichedWordType.NORMAL) {
         fragment.append(word.text)
         continue
       }
+
       const element = new WordElement(document, word, range, background)
       this.words.push(element)
       if (word.time) {
         masked.push({ wipe: element.wipe, word: element.word, range: word.time })
       }
+
       this.cues.push(...(element.motion?.cues ?? []))
       fragment.appendChild(element.element)
     }
+
     text.replaceChildren(fragment)
     this.mask = new MaskAnimationHost(masked, range)
     this.cues.push(...this.mask.cues)

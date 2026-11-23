@@ -22,6 +22,21 @@ interface PlaybackClock {
   startedAt: number
 }
 
+interface MatchedLines {
+  lines: EnrichedLine[]
+  indexes: number[]
+}
+
+interface LineState {
+  display: MatchedLines
+  current: MatchedLines
+  nextLineIndex: number
+}
+
+const makeEmptyMatches = (): MatchedLines => {
+  return { lines: [], indexes: [] }
+}
+
 const makeEmptyLyric = (): EnrichedLyric => {
   return makeEnrichedLyric({ status: EnrichedLyricStatus.VALID, timing: TimingLevel.NONE })
 }
@@ -39,15 +54,11 @@ export class CorePlayer {
   private activeLinesUpdatePending = false
   private activeLinesNeedResync = false
 
-  private displayLines: EnrichedLine[] = []
-  private displayLineIndexes: number[] = []
-
-  private timeMatchedLines: EnrichedLine[] = []
-  private timeMatchedIndexes: number[] = []
+  private display = makeEmptyMatches()
+  private timeMatched = makeEmptyMatches()
 
   private lastEmittedOffset = 0
-  private lastEmittedCurrentLines: EnrichedLine[] = []
-  private lastEmittedCurrentIndexes: number[] = []
+  private lastEmittedCurrent = makeEmptyMatches()
 
   private nextLineIndex = 0
 
@@ -63,8 +74,10 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     const metadataUsageChanged = changedKeys.has('offset.useMeta')
     const mergeConfigChanged = changedKeys.has('mergeWindow') || changedKeys.has('mergeLimit')
+    const timingConfigChanged = changedKeys.has('offset.global') || changedKeys.has('bridgeActive')
 
     if (metadataUsageChanged) {
       this.offsetState.refreshFromMeta(this.lyric, this.config.current.offset.useMeta)
@@ -72,9 +85,10 @@ export class CorePlayer {
     if (mergeConfigChanged) {
       this.rebuildDisplayEndTimes()
     }
-    if (metadataUsageChanged || mergeConfigChanged || changedKeys.has('offset.global') || changedKeys.has('bridgeActive')) {
+    if (metadataUsageChanged || mergeConfigChanged || timingConfigChanged) {
       this.resyncLineState()
     }
+
     if (changedKeys.has('driver') && this.clock.running) {
       this.tickDriver.schedule(this.config.current.driver, this.handleTick)
     }
@@ -92,23 +106,33 @@ export class CorePlayer {
     return this.lyric.timing === TimingLevel.LINE || this.lyric.timing === TimingLevel.WORD
   }
 
-  private bridgeActiveLines(lines: EnrichedLine[], indexes: number[]): { lines: EnrichedLine[]; indexes: number[] } {
-    const firstIndex = indexes[0]
-    const lastIndex = indexes[indexes.length - 1]
-    if (!this.config.current.bridgeActive || firstIndex === undefined || lastIndex === undefined || lastIndex - firstIndex + 1 === indexes.length) {
-      return { lines, indexes }
+  private bridgeActiveLines(matches: MatchedLines): MatchedLines {
+    if (!this.config.current.bridgeActive) {
+      return matches
     }
 
-    const bridgedLines: EnrichedLine[] = []
-    const bridgedIndexes: number[] = []
+    const { indexes } = matches
+    const firstIndex = indexes[0]
+    const lastIndex = indexes[indexes.length - 1]
+    if (firstIndex === undefined || lastIndex === undefined) {
+      return matches
+    }
+
+    const hasGaps = lastIndex - firstIndex + 1 !== indexes.length
+    if (!hasGaps) {
+      return matches
+    }
+
+    const bridged = makeEmptyMatches()
     for (let lineIndex = firstIndex; lineIndex <= lastIndex; lineIndex++) {
       const line = this.lyric.lines[lineIndex]
       if (line?.time) {
-        bridgedLines.push(line)
-        bridgedIndexes.push(lineIndex)
+        bridged.lines.push(line)
+        bridged.indexes.push(lineIndex)
       }
     }
-    return { lines: bridgedLines, indexes: bridgedIndexes }
+
+    return bridged
   }
 
   private emitOffsetUpdate() {
@@ -116,30 +140,30 @@ export class CorePlayer {
     if (this.isDisposed || effectiveOffset === this.lastEmittedOffset) {
       return
     }
+
     const previousOffset = this.lastEmittedOffset
     this.lastEmittedOffset = effectiveOffset
     this.event.emit('offset-update', effectiveOffset, previousOffset)
   }
 
   private emitActiveLinesUpdate(needsResync: boolean) {
-    const { lines, indexes } = this.bridgeActiveLines(this.displayLines, this.displayLineIndexes)
+    const { lines, indexes } = this.bridgeActiveLines(this.display)
     this.event.emit('active-lines-update', lines, indexes, indexes[0] ?? -1, needsResync)
   }
 
   private emitCurrentLinesUpdate() {
-    const lines = this.timeMatchedLines
-    const indexes = this.timeMatchedIndexes
+    const { lines, indexes } = this.timeMatched
     const matchesLastEmission =
-      lines.length === this.lastEmittedCurrentLines.length &&
+      lines.length === this.lastEmittedCurrent.lines.length &&
       lines.every((line, index) => {
-        return line === this.lastEmittedCurrentLines[index] && indexes[index] === this.lastEmittedCurrentIndexes[index]
+        return line === this.lastEmittedCurrent.lines[index] && indexes[index] === this.lastEmittedCurrent.indexes[index]
       })
+
     if (matchesLastEmission) {
       return
     }
 
-    this.lastEmittedCurrentLines = lines
-    this.lastEmittedCurrentIndexes = indexes
+    this.lastEmittedCurrent = this.timeMatched
     this.event.emit('current-lines-update', lines, indexes, indexes[0] ?? -1)
   }
 
@@ -147,11 +171,14 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     this.emitOffsetUpdate()
     if (this.isDisposed) {
       return
     }
+
     this.emitCurrentLinesUpdate()
+
     // Reentrant listeners flush the latest state; do not retain an earlier line snapshot here.
     if (!this.isDisposed && this.activeLinesUpdatePending) {
       const needsResync = this.activeLinesNeedResync
@@ -161,20 +188,15 @@ export class CorePlayer {
     }
   }
 
-  private matchLineState(lyricTime: number): {
-    displayLines: EnrichedLine[]
-    displayIndexes: number[]
-    currentLines: EnrichedLine[]
-    currentIndexes: number[]
-    nextLineIndex: number
-  } {
-    const displayLines: EnrichedLine[] = []
-    const displayIndexes: number[] = []
-    const currentLines: EnrichedLine[] = []
-    const currentIndexes: number[] = []
-    let nextLineIndex = this.lyric.lines.length
+  private matchLineState(lyricTime: number): LineState {
+    const state: LineState = {
+      display: makeEmptyMatches(),
+      current: makeEmptyMatches(),
+      nextLineIndex: this.lyric.lines.length,
+    }
+
     if (!this.hasLineTiming || !Number.isFinite(lyricTime)) {
-      return { displayLines, displayIndexes, currentLines, currentIndexes, nextLineIndex }
+      return state
     }
 
     // Start-sorted input lets the scan stop at the first future line without changing event indexes.
@@ -182,29 +204,32 @@ export class CorePlayer {
       if (!line.time) {
         continue
       }
+
       if (line.time.start > lyricTime) {
-        nextLineIndex = lineIndex
+        state.nextLineIndex = lineIndex
         break
       }
+
       if (lyricTime < this.lineMerger.getMergedTime(lineIndex)) {
-        displayLines.push(line)
-        displayIndexes.push(lineIndex)
+        state.display.lines.push(line)
+        state.display.indexes.push(lineIndex)
       }
+
       if (isTimeInTimeRange(line.time, lyricTime)) {
-        currentLines.push(line)
-        currentIndexes.push(lineIndex)
+        state.current.lines.push(line)
+        state.current.indexes.push(lineIndex)
       }
     }
-    return { displayLines, displayIndexes, currentLines, currentIndexes, nextLineIndex }
+
+    return state
   }
 
   private rebuildLineState(needsResync: boolean) {
     const matches = this.matchLineState(this.lyricTime)
-    this.displayLines = matches.displayLines
-    this.displayLineIndexes = matches.displayIndexes
-    this.timeMatchedLines = matches.currentLines
-    this.timeMatchedIndexes = matches.currentIndexes
+    this.display = matches.display
+    this.timeMatched = matches.current
     this.nextLineIndex = matches.nextLineIndex
+
     this.activeLinesUpdatePending = true
     this.activeLinesNeedResync = needsResync
   }
@@ -214,38 +239,35 @@ export class CorePlayer {
     this.flushStateEvents()
   }
 
-  private advanceLineState(lyricTime: number) {
-    if (!this.hasLineTiming || !Number.isFinite(lyricTime)) {
-      return
-    }
+  private retainDisplayLines(lyricTime: number): MatchedLines {
+    const matches = makeEmptyMatches()
 
-    const displayLines: EnrichedLine[] = []
-    const displayIndexes: number[] = []
-    const currentLines: EnrichedLine[] = []
-    const currentIndexes: number[] = []
-    let displayChanged = false
-    let timeMatchesChanged = false
-
-    for (const lineIndex of this.displayLineIndexes) {
+    for (const lineIndex of this.display.indexes) {
       const line = this.lyric.lines[lineIndex]
       if (line && lyricTime < this.lineMerger.getMergedTime(lineIndex)) {
-        displayLines.push(line)
-        displayIndexes.push(lineIndex)
-      } else {
-        displayChanged = true
+        matches.lines.push(line)
+        matches.indexes.push(lineIndex)
       }
     }
 
-    for (const lineIndex of this.timeMatchedIndexes) {
+    return matches
+  }
+
+  private retainCurrentLines(lyricTime: number): MatchedLines {
+    const matches = makeEmptyMatches()
+
+    for (const lineIndex of this.timeMatched.indexes) {
       const line = this.lyric.lines[lineIndex]
       if (line && isTimeInTimeRange(line.time, lyricTime)) {
-        currentLines.push(line)
-        currentIndexes.push(lineIndex)
-      } else {
-        timeMatchesChanged = true
+        matches.lines.push(line)
+        matches.indexes.push(lineIndex)
       }
     }
 
+    return matches
+  }
+
+  private appendStartedLines(lyricTime: number, display: MatchedLines, current: MatchedLines) {
     while (this.nextLineIndex < this.lyric.lines.length) {
       const lineIndex = this.nextLineIndex
       const line = this.lyric.lines[lineIndex]
@@ -253,30 +275,46 @@ export class CorePlayer {
         this.nextLineIndex++
         continue
       }
+
       if (line.time.start > lyricTime) {
         break
       }
+
       if (lyricTime < this.lineMerger.getMergedTime(lineIndex)) {
-        displayLines.push(line)
-        displayIndexes.push(lineIndex)
-        displayChanged = true
+        display.lines.push(line)
+        display.indexes.push(lineIndex)
       }
+
       if (isTimeInTimeRange(line.time, lyricTime)) {
-        currentLines.push(line)
-        currentIndexes.push(lineIndex)
-        timeMatchesChanged = true
+        current.lines.push(line)
+        current.indexes.push(lineIndex)
       }
+
       this.nextLineIndex++
     }
+  }
+
+  private advanceLineState(lyricTime: number) {
+    if (!this.hasLineTiming || !Number.isFinite(lyricTime)) {
+      return
+    }
+
+    const display = this.retainDisplayLines(lyricTime)
+    const current = this.retainCurrentLines(lyricTime)
+    const retainedDisplayCount = display.indexes.length
+    const retainedCurrentCount = current.indexes.length
+
+    this.appendStartedLines(lyricTime, display, current)
+
+    const displayChanged = retainedDisplayCount !== this.display.indexes.length || display.indexes.length !== retainedDisplayCount
+    const currentChanged = retainedCurrentCount !== this.timeMatched.indexes.length || current.indexes.length !== retainedCurrentCount
 
     if (displayChanged) {
-      this.displayLines = displayLines
-      this.displayLineIndexes = displayIndexes
+      this.display = display
       this.activeLinesUpdatePending = true
     }
-    if (timeMatchesChanged) {
-      this.timeMatchedLines = currentLines
-      this.timeMatchedIndexes = currentIndexes
+    if (currentChanged) {
+      this.timeMatched = current
     }
   }
 
@@ -284,6 +322,7 @@ export class CorePlayer {
     if (!this.clock.running || this.isDisposed) {
       return
     }
+
     // Schedule first so a listener's pause, seek or disposal can cancel or replace the next tick.
     this.tickDriver.schedule(this.config.current.driver, this.handleTick)
     this.advanceLineState(this.lyricTime)
@@ -295,6 +334,7 @@ export class CorePlayer {
     const pausedClock = { ...previousClock, running: false, position: this.currentTime }
     this.clock = pausedClock
     this.tickDriver.cancel()
+
     if (previousClock.running) {
       if (!this.isDisposed) {
         this.advanceLineState(this.lyricTime)
@@ -302,6 +342,7 @@ export class CorePlayer {
       this.event.emit('pause', pausedClock.position)
       this.flushStateEvents()
     }
+
     return pausedClock
   }
 
@@ -314,11 +355,13 @@ export class CorePlayer {
     if (positionedClock.running) {
       this.tickDriver.schedule(this.config.current.driver, this.handleTick)
     }
+
     this.resyncLineState()
     if (!this.isDisposed && this.pendingSeek === notification) {
       this.pendingSeek = null
       this.event.emit('seek', notification.time, notification.previousTime)
     }
+
     return positionedClock
   }
 
@@ -334,6 +377,7 @@ export class CorePlayer {
     if (this.isDisposed || !lyric) {
       return
     }
+
     let nextLyric = lyric
     if (parse(lyric.version)?.major !== SUPPORTED_SCHEMA_MAJOR) {
       console.warn(`[@gondola-lyrics/player] ignored lyric with incompatible version "${lyric.version}", expected major ${SUPPORTED_SCHEMA_MAJOR}`)
@@ -346,6 +390,7 @@ export class CorePlayer {
     if (this.isDisposed || this.clock !== pausedClock) {
       return
     }
+
     this.pendingSeek = null
     this.lyric = nextLyric
     this.rebuildDisplayEndTimes()
@@ -373,13 +418,16 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     let expectedClock = this.pauseClock()
     if (this.isDisposed || this.clock !== expectedClock) {
       return
     }
+
     if (typeof playbackTime === 'number' && Number.isFinite(playbackTime)) {
       expectedClock = this.moveClock(playbackTime)
     }
+
     if (this.isDisposed || this.clock !== expectedClock) {
       return
     }
@@ -404,6 +452,7 @@ export class CorePlayer {
     if (this.isDisposed || !Number.isFinite(playbackTime)) {
       return
     }
+
     this.moveClock(playbackTime)
   }
 
@@ -415,6 +464,7 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     this.pauseClock()
   }
 
@@ -427,24 +477,25 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     this.isDisposed = true
     this.pendingSeek = null
     this.pauseClock()
     this.config.event.remove('update', this.handleConfigUpdate)
-    this.displayLines = []
-    this.displayLineIndexes = []
-    this.timeMatchedLines = []
-    this.timeMatchedIndexes = []
-    this.lastEmittedCurrentLines = []
-    this.lastEmittedCurrentIndexes = []
+
+    this.display = makeEmptyMatches()
+    this.timeMatched = makeEmptyMatches()
+    this.lastEmittedCurrent = makeEmptyMatches()
     this.activeLinesUpdatePending = false
     this.activeLinesNeedResync = false
+
     this.lyric = makeEmptyLyric()
     this.nextLineIndex = 0
     this.clock = { running: false, position: 0, startedAt: 0 }
     this.offsetState.resetTemp()
     this.offsetState.refreshFromMeta(this.lyric, false)
     this.rebuildDisplayEndTimes()
+
     this.event.emit('dispose')
     this.event.clear()
   }
@@ -458,6 +509,7 @@ export class CorePlayer {
     if (this.isDisposed) {
       return
     }
+
     this.offsetState.setTemp(offset)
     this.resyncLineState()
   }
@@ -471,7 +523,7 @@ export class CorePlayer {
    */
   matchLinesWithTime(playbackTime: number): { lines: EnrichedLine[]; index: number[] } {
     const matches = this.matchLineState(playbackTime + this.currentOffset)
-    const { lines, indexes } = this.bridgeActiveLines(matches.displayLines, matches.displayIndexes)
+    const { lines, indexes } = this.bridgeActiveLines(matches.display)
     return { lines, index: indexes }
   }
 
@@ -497,21 +549,21 @@ export class CorePlayer {
    * Display policies can keep these lines highlighted after their original ranges end.
    */
   get activeLines(): EnrichedLine[] {
-    return this.bridgeActiveLines(this.displayLines, this.displayLineIndexes).lines
+    return this.bridgeActiveLines(this.display).lines
   }
 
   /**
    * Indexes refer to currentInfo.lines, including lines added by display bridging.
    */
   get activeIndexes(): number[] {
-    return this.bridgeActiveLines(this.displayLines, this.displayLineIndexes).indexes
+    return this.bridgeActiveLines(this.display).indexes
   }
 
   /**
    * Returns -1 when no display line is active.
    */
   get firstActiveIndex(): number {
-    return this.displayLineIndexes[0] ?? -1
+    return this.display.indexes[0] ?? -1
   }
 
   /**
@@ -519,21 +571,21 @@ export class CorePlayer {
    * Unknown ends stay open; display holds, merging and bridging do not affect this set.
    */
   get currentLines(): EnrichedLine[] {
-    return this.timeMatchedLines
+    return this.timeMatched.lines
   }
 
   /**
    * Indexes refer to currentInfo.lines; overlapping ranges can produce several entries and gaps produce none.
    */
   get currentIndexes(): number[] {
-    return this.timeMatchedIndexes
+    return this.timeMatched.indexes
   }
 
   /**
    * Returns -1 when no original range matches, even if a display line remains highlighted.
    */
   get firstCurrentIndex(): number {
-    return this.timeMatchedIndexes[0] ?? -1
+    return this.timeMatched.indexes[0] ?? -1
   }
 
   /**
@@ -547,7 +599,8 @@ export class CorePlayer {
    * Reports playback milliseconds without lyric offsets; paused clocks retain their position.
    */
   get currentTime(): number {
-    return this.clock.running ? this.clock.position + performance.now() - this.clock.startedAt : this.clock.position
+    const { running, position, startedAt } = this.clock
+    return running ? position + performance.now() - startedAt : position
   }
 
   /**

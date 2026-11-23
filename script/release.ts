@@ -91,7 +91,12 @@ const checkArtifacts = (manifest: Manifest) => {
       targets.add(entry)
     }
   }
-  const missing = [...targets].filter((target) => !existsSync(resolve(PACKAGE_ROOT, target)))
+
+  const missing = [...targets].filter((target) => {
+    const path = resolve(PACKAGE_ROOT, target)
+    return !existsSync(path)
+  })
+
   if (missing.length > 0) {
     fail(`the build left these paths missing: ${missing.join(', ')}`)
   }
@@ -118,6 +123,7 @@ const commandPublish = (onlyCheck: boolean, skipCheckCi: boolean) => {
   if (!skipCheckCi && !process.env.CI) {
     fail('publish runs in CI; pass --skip-check-ci to publish from a local machine')
   }
+
   runNpm(['publish'])
   console.log(`release: published ${manifest.version}`)
 }
@@ -136,16 +142,19 @@ const commandBump = (version: string | undefined) => {
   if (version === '0.0.0') {
     fail('0.0.0 is the placeholder, not a release version')
   }
+
   const tag = `${TAG_PREFIX}${version}`
   if (runGit(['tag', '--list', tag]) !== '') {
     fail(`tag ${tag} already exists`)
   }
+
   // The builder refuses to write a version twice, so its section is checked here to leave nothing half written.
   if (existsSync(CHANGE_LOG) && readFileSync(CHANGE_LOG, 'utf8').includes(`## v${version} (`)) {
     fail(`CHANGELOG.md already has a section for ${version}`)
   }
   checkWorktree()
-  // The builder owns the propagation rule, so every release path applies the same one.
+
+  // Validate release ordering before either version file is changed.
   runScript('build-change-log', [version, '--check-bump'])
 
   // One implementation of the version write, shared with the standalone bump script.
@@ -167,6 +176,7 @@ const main = () => {
     },
   })
   const [command, version] = positionals
+
   switch (command) {
     case 'bump':
       return commandBump(version)

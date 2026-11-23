@@ -1,7 +1,8 @@
 import type { RenderChanges } from '@root/renderer/common/types'
-import type { DomRendererConfigKeys } from '@root/renderer/dom/config'
+import type { DomRendererConfigKeys, DomRendererConfigRequired } from '@root/renderer/dom/config'
 import type { RenderContext } from '@root/renderer/dom/context'
 import type { RenderMode } from '@root/renderer/dom/modes/types'
+import type { ListModeConfigRequired } from './config'
 
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
@@ -33,10 +34,12 @@ export class ListMode implements RenderMode {
     this.element.dataset.role = 'container'
     this.element.setAttribute('role', 'group')
     this.element.setAttribute('aria-label', 'Lyrics')
+
     this.content = context.document.createElement('div')
     this.content.className = buildClassName('list-content')
     this.element.appendChild(this.content)
     context.container.element.appendChild(this.element)
+
     this.layout = new ListLayout(this.content)
     this.scroll = new ListScroll(this.element, context.requestUpdate)
     this.observer = new ResizeObserver(this.handleSizeChange)
@@ -56,16 +59,85 @@ export class ListMode implements RenderMode {
     for (const line of this.lines) {
       line.dispose()
     }
+
     const { document, player, config, onLineClick, onLineContextMenu } = this.context
     this.lines = player.currentInfo.lines.map((line, index) => {
-      return new LineObject(document, line, index, config.current.line, { click: onLineClick, contextMenu: onLineContextMenu })
+      return new LineObject(document, line, index, config.current.line, {
+        click: onLineClick,
+        contextMenu: onLineContextMenu,
+      })
     })
     this.content.replaceChildren(...this.lines.map((line) => line.element))
     for (const line of this.lines) {
       this.observer.observe(line.element)
     }
+
     this.scroll.reset(0)
     this.layoutDirty = true
+  }
+
+  private syncFonts() {
+    const fonts = this.context.document.fonts
+    if (fonts === this.fonts) {
+      return
+    }
+
+    this.fonts.removeEventListener('loadingdone', this.handleSizeChange)
+    this.fonts = fonts
+    this.fonts.addEventListener('loadingdone', this.handleSizeChange)
+    this.layoutDirty = true
+  }
+
+  private syncContent(changes: RenderChanges<DomRendererConfigKeys>, config: DomRendererConfigRequired) {
+    this.syncFonts()
+
+    if (changes.lyric) {
+      this.rebuildLines()
+    } else if (changes.config.has('line')) {
+      for (const line of this.lines) {
+        line.updateConfig(config.line)
+      }
+      this.layoutDirty = true
+    }
+
+    if (changes.lyric || changes.config.has('line.words.enabled')) {
+      this.timeline.replace(this.lines.flatMap((line) => line.timeCues))
+    }
+  }
+
+  private updateLineState(align: ListModeConfigRequired['align'], activeIndexes: readonly number[], currentIndexes: readonly number[]) {
+    const active = new Set(activeIndexes)
+    const current = new Set(currentIndexes)
+    const lyricTime = this.context.player.currentTime + this.context.player.currentOffset
+    this.content.style.textAlign = align
+
+    for (const [index, line] of this.lines.entries()) {
+      line.element.setAttribute('position', align)
+      line.element.style.setProperty(LINE_POSITION, align)
+      line.updateState(active.has(index), current.has(index), lyricTime)
+    }
+  }
+
+  private updateLayout(changes: RenderChanges<DomRendererConfigKeys>, list: ListModeConfigRequired, follow: boolean) {
+    const height = this.element.clientHeight
+    const spacingChanged = changes.config.has('modes.list.gap') || changes.config.has('modes.list.align')
+    const layoutChanged = this.layoutDirty || changes.size || spacingChanged
+    if (layoutChanged) {
+      for (const line of this.lines) {
+        line.measureWords()
+      }
+
+      const gap = Number.isFinite(list.gap) ? Math.max(0, list.gap) : DEFAULT.gap
+      this.layout.measure(this.lines, gap)
+      this.layoutDirty = height === 0
+    }
+
+    const anchorChanged = changes.config.has('modes.list.scroll.anchor') || changes.config.has('modes.list.scroll.follow')
+    this.layout.position(this.scroll.index, height, list.scroll, {
+      follow,
+      browsing: this.scroll.isBrowsing,
+      immediate: layoutChanged || anchorChanged,
+    })
   }
 
   /**
@@ -75,58 +147,22 @@ export class ListMode implements RenderMode {
     if (this.isDisposed) {
       return
     }
+
     const { currentInfo, activeIndexes, currentIndexes } = this.context.player
     const config = this.context.config.current
     const list = config.modes.list
-    const follow = list.scroll.follow && (currentInfo.timing === TimingLevel.LINE || currentInfo.timing === TimingLevel.WORD)
-    const fonts = this.context.document.fonts
-    if (fonts !== this.fonts) {
-      this.fonts.removeEventListener('loadingdone', this.handleSizeChange)
-      this.fonts = fonts
-      this.fonts.addEventListener('loadingdone', this.handleSizeChange)
-      this.layoutDirty = true
-    }
-    if (changes.lyric) {
-      this.rebuildLines()
-    } else if (changes.config.has('line')) {
-      for (const line of this.lines) {
-        line.updateConfig(config.line)
-      }
-      this.layoutDirty = true
-    }
-    if (changes.lyric || changes.config.has('line.words.enabled')) {
-      this.timeline.replace(this.lines.flatMap((line) => line.timeCues))
-    }
+    const timed = currentInfo.timing === TimingLevel.LINE || currentInfo.timing === TimingLevel.WORD
+    const follow = list.scroll.follow && timed
+    this.syncContent(changes, config)
+
     if (changes.seek) {
       this.scroll.reset()
     }
-    this.scroll.update(follow ? (activeIndexes[0] ?? 0) : undefined, this.lines.length, list.scroll.resumeDelay)
-    this.content.style.textAlign = list.align
 
-    const active = new Set(activeIndexes)
-    const current = new Set(currentIndexes)
-    const lyricTime = this.context.player.currentTime + this.context.player.currentOffset
-    for (const [index, line] of this.lines.entries()) {
-      line.element.setAttribute('position', list.align)
-      line.element.style.setProperty(LINE_POSITION, list.align)
-      line.updateState(active.has(index), current.has(index), lyricTime)
-    }
-
-    const height = this.element.clientHeight
-    const layoutChanged = this.layoutDirty || changes.size || changes.config.has('modes.list.gap') || changes.config.has('modes.list.align')
-    if (layoutChanged) {
-      for (const line of this.lines) {
-        line.measureWords()
-      }
-      const gap = Number.isFinite(list.gap) ? Math.max(0, list.gap) : DEFAULT.gap
-      this.layout.measure(this.lines, gap)
-      this.layoutDirty = height === 0
-    }
-    this.layout.position(this.scroll.index, height, list.scroll, {
-      follow,
-      browsing: this.scroll.isBrowsing,
-      immediate: layoutChanged || changes.config.has('modes.list.scroll.anchor') || changes.config.has('modes.list.scroll.follow'),
-    })
+    const activeIndex = follow ? (activeIndexes[0] ?? 0) : undefined
+    this.scroll.update(activeIndex, this.lines.length, list.scroll.resumeDelay)
+    this.updateLineState(list.align, activeIndexes, currentIndexes)
+    this.updateLayout(changes, list, follow)
   }
 
   /**
@@ -146,9 +182,11 @@ export class ListMode implements RenderMode {
     this.scroll.dispose()
     this.layout.clear()
     this.timeline.replace([])
+
     for (const line of this.lines) {
       line.dispose()
     }
+
     this.lines = []
     this.element.remove()
   }

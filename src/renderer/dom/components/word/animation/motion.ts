@@ -45,9 +45,11 @@ export class WordMotion {
     this.emphasisEnd = chars.length ? lastDelay + Math.max(this.duration, this.duration * FLOAT_DURATION_SCALE - FLOAT_LEAD) : 0
     this.start = Math.max(block?.start ?? range.start, range.start - (chars.length ? FLOAT_LEAD : 0))
     this.blockEnd = block?.end ?? Infinity
+
     if (this.blockEnd <= this.start) {
       return
     }
+
     const entranceEnd = range.start + Math.max(this.duration, this.emphasisEnd)
     this.addCue(this.start, Math.min(this.blockEnd, entranceEnd))
     if (Number.isFinite(this.blockEnd)) {
@@ -62,6 +64,7 @@ export class WordMotion {
     if (end <= start) {
       return
     }
+
     this.cues.push({
       range: { start, end },
       update: (lyricTime) => {
@@ -78,6 +81,7 @@ export class WordMotion {
     const local = lyricTime - this.range.start
     const release = Math.max(0, lyricTime - this.blockEnd)
     const during = Math.min(local, this.blockEnd - this.range.start)
+
     this.updateFloat(lyricTime < this.start ? 0 : Math.min(this.duration, during) - release)
     if (this.chars.length) {
       this.updateEmphasis(lyricTime < this.start ? -FLOAT_LEAD : during + release * RELEASE_RATE)
@@ -90,11 +94,13 @@ export class WordMotion {
       this.raised = raised
       this.word.style.translate = raised ? '0 -2px' : ''
     }
+
     if (time <= 0 || raised) {
       this.float?.cancel()
       this.float = undefined
       return
     }
+
     if (!this.float) {
       this.float = this.word.animate([{ transform: 'translateY(0px)' }, { transform: 'translateY(-2px)' }], {
         duration: this.duration,
@@ -104,6 +110,7 @@ export class WordMotion {
       })
       this.float.pause()
     }
+
     this.float.currentTime = time
   }
 
@@ -114,10 +121,12 @@ export class WordMotion {
     const radius = round(9 * glow)
     const resetShadow = `0 0 ${radius}px rgba(0, 0, 0, 0)`
     const peakShadow = `0 0 ${radius}px rgba(0, 0, 0, ${round(glow)})`
+
     for (const [index, char] of this.chars.entries()) {
       const delay = this.stagger * index
       const x = round(-round(main) * (this.chars.length / 2 - index))
       const peak = `scale3d(${scale}, ${scale}, 1) translate3d(${x}px, ${round(-main)}px, 0px)`
+
       const accent = char.animate(
         [
           { transform: REST, textShadow: resetShadow, easing: RISE },
@@ -126,6 +135,7 @@ export class WordMotion {
         ],
         { delay: FLOAT_LEAD + delay, duration: this.duration, fill: 'both' },
       )
+
       const lift = char.animate(
         [
           { transform: 'translateY(0px)', easing: FLOAT_EASING },
@@ -134,6 +144,7 @@ export class WordMotion {
         ],
         { delay, duration: this.duration * FLOAT_DURATION_SCALE, fill: 'both', composite: 'add' },
       )
+
       accent.pause()
       lift.pause()
       this.emphasis.push(accent, lift)
@@ -145,9 +156,11 @@ export class WordMotion {
       this.clearEmphasis()
       return
     }
+
     if (this.emphasis.length === 0) {
       this.createEmphasis()
     }
+
     for (const animation of this.emphasis) {
       animation.currentTime = time + FLOAT_LEAD
     }
@@ -157,6 +170,7 @@ export class WordMotion {
     for (const animation of this.emphasis) {
       animation.cancel()
     }
+
     this.emphasis.length = 0
   }
 

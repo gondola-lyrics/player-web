@@ -24,6 +24,7 @@ export class ListScroll {
     element.addEventListener('pointerdown', this.handlePointerDown, { capture: true, passive: true })
     element.addEventListener('touchstart', this.handleTouchStart, { capture: true, passive: true })
     element.addEventListener('touchmove', this.handleTouchMove, { passive: false })
+
     this.syncDocument()
   }
 
@@ -32,14 +33,17 @@ export class ListScroll {
     if (document === this.document) {
       return
     }
+
     this.unbindDocument()
     this.clearInput()
     this.document = document
+
     document.addEventListener('pointerup', this.handlePointerUp, { capture: true, passive: true })
     document.addEventListener('pointercancel', this.handlePointerUp, { capture: true, passive: true })
     document.addEventListener('touchend', this.handleTouchEnd, { capture: true, passive: true })
     document.addEventListener('touchcancel', this.handleTouchEnd, { capture: true, passive: true })
     document.defaultView?.addEventListener('blur', this.handleBlur)
+
     this.scheduleResume()
   }
 
@@ -55,6 +59,7 @@ export class ListScroll {
     if (event.defaultPrevented || event.ctrlKey || event.deltaY === 0 || this.lineCount === 0) {
       return
     }
+
     event.preventDefault()
     this.browse(this.anchorIndex + Math.sign(event.deltaY))
   }
@@ -79,6 +84,7 @@ export class ListScroll {
     for (const touch of event.changedTouches) {
       this.touches.add(touch.identifier)
     }
+
     this.touchY = event.touches.length === 1 ? event.touches[0]?.clientY : undefined
     this.clearTimer()
   }
@@ -88,10 +94,12 @@ export class ListScroll {
     if (event.defaultPrevented || event.touches.length !== 1 || !touch || !this.touches.has(touch.identifier) || this.touchY === undefined) {
       return
     }
+
     const steps = Math.trunc((this.touchY - touch.clientY) / TOUCH_STEP)
     if (steps === 0 || this.lineCount === 0) {
       return
     }
+
     event.preventDefault()
     this.touchY -= steps * TOUCH_STEP
     this.browse(this.anchorIndex + steps)
@@ -102,6 +110,7 @@ export class ListScroll {
     for (const touch of event.changedTouches) {
       released = this.touches.delete(touch.identifier) || released
     }
+
     if (released) {
       this.touchY = undefined
       this.scheduleResume()
@@ -131,6 +140,7 @@ export class ListScroll {
     if (!this.canFollow || !this.browsing || this.pointerId !== null || this.touches.size > 0 || this.resumeDelay === Infinity) {
       return
     }
+
     const delay = Number.isFinite(this.resumeDelay) ? Math.max(0, this.resumeDelay) : DEFAULT.scroll.resumeDelay
     this.resumeAt = performance.now() + delay
     this.timer = setTimeout(this.handleResume, Math.min(delay, MAX_TIMEOUT))
@@ -143,6 +153,7 @@ export class ListScroll {
       this.timer = setTimeout(this.handleResume, Math.min(remaining, MAX_TIMEOUT))
       return
     }
+
     this.reset()
     this.requestUpdate()
   }
@@ -161,6 +172,7 @@ export class ListScroll {
     if (canFollow && !this.canFollow) {
       this.reset()
     }
+
     this.canFollow = canFollow
     this.lineCount = lineCount
     this.resumeDelay = resumeDelay
@@ -178,6 +190,7 @@ export class ListScroll {
       this.element.setAttribute('scrolling', '')
       this.requestUpdate()
     }
+
     if (this.browsing) {
       this.scheduleResume()
     }
@@ -213,10 +226,12 @@ export class ListScroll {
    */
   dispose() {
     this.reset()
+
     this.element.removeEventListener('wheel', this.handleWheel)
     this.element.removeEventListener('pointerdown', this.handlePointerDown, true)
     this.element.removeEventListener('touchstart', this.handleTouchStart, true)
     this.element.removeEventListener('touchmove', this.handleTouchMove)
+
     this.unbindDocument()
     this.document = null
   }

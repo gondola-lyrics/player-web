@@ -68,6 +68,7 @@ export const readParserOptions = (value?: unknown): ParserOptions => {
   const milliseconds = (value: unknown, fallback: number) => {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : fallback
   }
+
   return {
     language: typeof saved.language === 'string' ? saved.language : '',
     extractBackgrounds: saved.extractBackgrounds === true,
@@ -87,6 +88,7 @@ const parseOriginal = (source: LyricSource, options: ParserOptions): ParseResult
     translations: source.translations.trim() ? source.translations : undefined,
     romans: source.romans.trim() ? source.romans : undefined,
   }
+
   switch (source.format) {
     case 'lrc':
       return parseLrc(tracks)
@@ -111,6 +113,7 @@ export const parseSource = (source: LyricSource, options: ParserOptions): ParseR
   if (result.lyric.status !== EnrichedLyricStatus.VALID) {
     return result
   }
+
   let lyric = result.lyric
   if (options.extractBackgrounds) {
     lyric = extractBackgroundLines(lyric)
@@ -124,5 +127,6 @@ export const parseSource = (source: LyricSource, options: ParserOptions): ParseR
   if (options.instrumental.enabled) {
     lyric = insertInstrumentalLines(lyric, options.instrumental)
   }
+
   return { lyric, diagnostics: lyric === result.lyric ? result.diagnostics : validateEnrichedLyric(lyric) }
 }

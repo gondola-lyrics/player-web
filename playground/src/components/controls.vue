@@ -7,29 +7,35 @@ import { computed, onScopeDispose, ref } from 'vue'
 
 import { formatTime } from '../lib/format'
 
-const props = defineProps<{ player: ReturnType<typeof usePlayer>; i18n: ReturnType<typeof useI18n>; panelOpen: boolean }>()
+const props = defineProps<{
+  player: ReturnType<typeof usePlayer>
+  i18n: ReturnType<typeof useI18n>
+  panelOpen: boolean
+}>()
 defineEmits<{ togglePanel: [] }>()
+
 const progress = computed(() => props.player.currentTime.value)
-const label = computed(() => props.i18n.t(props.player.media.state.playing ? 'controls.pause' : 'controls.play'))
+const label = computed(() => {
+  const key = props.player.media.state.playing ? 'controls.pause' : 'controls.play'
+
+  return props.i18n.t(key)
+})
 const dragging = ref(false)
+
 const beginDrag = () => {
   dragging.value = true
   props.player.beginPreview()
 }
+
 const endDrag = () => {
   dragging.value = false
   props.player.commitPreview()
 }
+
 const cancelDrag = () => {
   props.player.cancelPreview()
 }
-window.addEventListener('blur', cancelDrag)
-window.addEventListener('touchcancel', cancelDrag, true)
-onScopeDispose(() => {
-  cancelDrag()
-  window.removeEventListener('blur', cancelDrag)
-  window.removeEventListener('touchcancel', cancelDrag, true)
-})
+
 const toggle = () => {
   if (props.player.media.state.playing) {
     props.player.media.pause()
@@ -37,6 +43,7 @@ const toggle = () => {
     void props.player.media.play()
   }
 }
+
 const updateProgress = (value: number) => {
   if (dragging.value) {
     props.player.preview(value)
@@ -44,6 +51,15 @@ const updateProgress = (value: number) => {
     props.player.seek(value)
   }
 }
+
+window.addEventListener('blur', cancelDrag)
+window.addEventListener('touchcancel', cancelDrag, true)
+
+onScopeDispose(() => {
+  cancelDrag()
+  window.removeEventListener('blur', cancelDrag)
+  window.removeEventListener('touchcancel', cancelDrag, true)
+})
 </script>
 
 <template>

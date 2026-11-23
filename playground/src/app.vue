@@ -2,35 +2,44 @@
 import { NAlert, NButton, NConfigProvider, NGlobalStyle, NMessageProvider, NText, enUS, zhCN } from 'naive-ui'
 import { computed, onScopeDispose, ref } from 'vue'
 
-import ControlPanel from './components/control-panel.vue'
-import Controls from './components/controls.vue'
-import LyricArea from './components/lyric-area.vue'
 import { useI18n } from './composables/useI18n'
 import { usePlayer } from './composables/usePlayer'
 import { useSettings } from './composables/useSettings'
 import { THEME_OVERRIDES } from './lib/theme'
 
+import ControlPanel from './components/control-panel.vue'
+import Controls from './components/controls.vue'
+import LyricArea from './components/lyric-area.vue'
+
 const player = usePlayer()
 const settings = useSettings(player)
 const i18n = useI18n()
 const { t, locale } = i18n
+
 const orientation = window.matchMedia('(orientation: landscape)')
 const panelOpen = ref(orientation.matches)
 const activeTab = ref('audio')
+const storageAvailable = computed(() => {
+  return player.storageAvailable.value && player.media.state.storageAvailable && settings.storageAvailable.value
+})
+
 const handleOrientation = () => {
   panelOpen.value = orientation.matches
 }
-orientation.addEventListener('change', handleOrientation)
-onScopeDispose(() => {
-  orientation.removeEventListener('change', handleOrientation)
-})
+
 const toggleLocale = () => {
   locale.value = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
 }
+
 const togglePanel = () => {
   panelOpen.value = !panelOpen.value
 }
-const storageAvailable = computed(() => player.storageAvailable.value && player.media.state.storageAvailable && settings.storageAvailable.value)
+
+orientation.addEventListener('change', handleOrientation)
+
+onScopeDispose(() => {
+  orientation.removeEventListener('change', handleOrientation)
+})
 </script>
 
 <template>
@@ -59,7 +68,9 @@ const storageAvailable = computed(() => player.storageAvailable.value && player.
           </aside>
         </div>
         <main class="app-main">
-          <NAlert v-if="!storageAvailable" type="warning" :show-icon="false" class="storage-alert">{{ t('app.storage') }}</NAlert>
+          <NAlert v-if="!storageAvailable" type="warning" :show-icon="false" class="storage-alert">
+            {{ t('app.storage') }}
+          </NAlert>
           <LyricArea :player="player" :i18n="i18n" />
           <Controls :player="player" :i18n="i18n" :panel-open="panelOpen" @toggle-panel="togglePanel" />
         </main>

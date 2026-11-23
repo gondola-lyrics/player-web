@@ -6,6 +6,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   if (value === null || typeof value !== 'object') {
     return false
   }
+
   const prototype = Object.getPrototypeOf(value)
   return prototype === Object.prototype || prototype === null
 }
@@ -14,10 +15,12 @@ const merge = (current: unknown, patch: unknown, validate: (path: string, value:
   if (patch === undefined || patch === null) {
     return current
   }
+
   if (isRecord(current)) {
     if (!isRecord(patch)) {
       return current
     }
+
     return Object.fromEntries(
       Object.entries(current).map(([key, value]) => {
         const childPath = path ? `${path}.${key}` : key
@@ -25,9 +28,11 @@ const merge = (current: unknown, patch: unknown, validate: (path: string, value:
       }),
     )
   }
+
   if (typeof current !== typeof patch || Array.isArray(current) !== Array.isArray(patch) || !validate(path, patch)) {
     return current
   }
+
   return structuredClone(patch)
 }
 
@@ -36,8 +41,10 @@ const freeze = <T>(value: T): T => {
     for (const child of Object.values(value)) {
       freeze(child)
     }
+
     Object.freeze(value)
   }
+
   return value
 }
 
@@ -45,13 +52,20 @@ const compare = (previous: unknown, current: unknown, path: string, changes: Set
   if (Object.is(previous, current)) {
     return false
   }
+
   if (Array.isArray(previous) && Array.isArray(current)) {
-    const same = previous.length === current.length && previous.every((value, index) => !compare(value, current[index], '', new Set()))
+    const same =
+      previous.length === current.length &&
+      previous.every((value, index) => {
+        const elementChanges = new Set<string>()
+        return !compare(value, current[index], '', elementChanges)
+      })
     if (same) {
       return false
     }
   } else if (isRecord(previous) && isRecord(current)) {
     let changed = false
+
     for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
       const childPath = path ? `${path}.${key}` : key
       if (Object.hasOwn(previous, key) !== Object.hasOwn(current, key)) {
@@ -61,6 +75,7 @@ const compare = (previous: unknown, current: unknown, path: string, changes: Set
         changed = true
       }
     }
+
     if (!changed) {
       return false
     }
@@ -69,6 +84,7 @@ const compare = (previous: unknown, current: unknown, path: string, changes: Set
   if (path) {
     changes.add(path)
   }
+
   return true
 }
 
@@ -110,6 +126,7 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   private update(value: Full) {
     const changes = new Set<string>()
     compare(this.value, value, '', changes)
+
     if (changes.size > 0) {
       this.value = freeze(value)
       this.event.emit('update', changes as Set<Keys>, value)
@@ -130,6 +147,7 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   modify(edit: (config: Full) => void) {
     const value = structuredClone(this.value)
     edit(value)
+
     this.update(this.apply(this.value, value))
   }
 

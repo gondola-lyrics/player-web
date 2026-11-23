@@ -18,13 +18,16 @@ export class WordElement {
     this.element = document.createElement('span')
     this.element.className = buildClassName('cell')
     this.element.dataset.role = 'line-normal-text-word'
+
     if (source.language) {
       this.element.lang = source.language
     }
+
     this.wipe = document.createElement('span')
     this.wipe.className = buildClassName('wipe')
     this.word = document.createElement('span')
     this.word.className = buildClassName('word')
+
     const chars: HTMLSpanElement[] = []
     if (source.time && source.emphasis?.value) {
       const segments = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(source.text)
@@ -36,13 +39,16 @@ export class WordElement {
         this.word.appendChild(char)
         chars.push(char)
       }
+
       this.element.style.setProperty(EMPHASIZE_PADDING_HORIZONTAL, '9px')
       this.element.style.setProperty(EMPHASIZE_PADDING_VERTICAL, '5px')
     } else {
       this.word.textContent = source.text
     }
+
     this.wipe.appendChild(this.word)
     this.element.appendChild(this.wipe)
+
     if (source.time) {
       this.motion = new WordMotion(this.word, chars, source.time, block, background)
     }

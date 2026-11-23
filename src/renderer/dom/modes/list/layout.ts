@@ -29,6 +29,24 @@ export class ListLayout {
 
   constructor(private readonly content: HTMLElement) {}
 
+  private updateAnimation(config: ListModeConfigRequired['scroll']['animation'], options: PositionOptions) {
+    const animate = !options.immediate && config.enabled && config.duration > 0
+    this.content.toggleAttribute('animatable', animate)
+    if (!animate) {
+      return
+    }
+
+    const view = this.content.ownerDocument.defaultView
+    const supported = view?.CSS.supports('transition-timing-function', config.easing)
+    const easing = supported ? config.easing : DEFAULT.scroll.animation.easing
+    const duration = options.browsing ? BROWSE_DURATION : config.duration
+    const delay = options.browsing ? 0 : config.uniform.delay
+
+    this.content.style.setProperty(SCROLL_EASING, easing)
+    this.content.style.setProperty(LINE_ANIMATION_DURATION, `${duration}ms`)
+    this.content.style.setProperty(LINE_ANIMATION_DELAY, `${delay}ms`)
+  }
+
   /**
    * Accumulates natural row heights independently of their current translations.
    */
@@ -40,6 +58,7 @@ export class ListLayout {
       top += height + gap
       return row
     })
+
     this.height = Math.max(0, top - gap)
     this.offset = undefined
   }
@@ -57,20 +76,12 @@ export class ListLayout {
     const desired = (height * anchor) / 100 - row.anchor
     const offset = options.follow ? desired : Math.min(0, Math.max(height - this.height, desired))
 
-    const animation = config.animation
-    const animate = !options.immediate && animation.enabled && animation.duration > 0
-    this.content.toggleAttribute('animatable', animate)
-    if (animate) {
-      const view = this.content.ownerDocument.defaultView
-      const easing = view?.CSS.supports('transition-timing-function', animation.easing) ? animation.easing : DEFAULT.scroll.animation.easing
-      this.content.style.setProperty(SCROLL_EASING, easing)
-      this.content.style.setProperty(LINE_ANIMATION_DURATION, `${options.browsing ? BROWSE_DURATION : animation.duration}ms`)
-      this.content.style.setProperty(LINE_ANIMATION_DELAY, `${options.browsing ? 0 : animation.uniform.delay}ms`)
-    }
+    this.updateAnimation(config.animation, options)
 
     if (offset === this.offset) {
       return
     }
+
     this.offset = offset
     for (const row of this.rows) {
       row.element.style.transform = `translateY(${row.top + offset}px)`

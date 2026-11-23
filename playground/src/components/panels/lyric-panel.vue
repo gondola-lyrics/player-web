@@ -12,29 +12,35 @@ import { LYRIC_FORMATS, hasAnnotationTracks } from '../../lib/parser'
 
 const props = defineProps<{ player: ReturnType<typeof usePlayer>; i18n: ReturnType<typeof useI18n> }>()
 const message = useMessage()
+
 const { format, text, name, translations, romans } = toRefs(props.player.draft)
 const annotationTracks = computed(() => hasAnnotationTracks(format.value))
 const fileError = ref(false)
-let readRevision = 0
-onScopeDispose(() => {
-  readRevision++
+const formatOptions = LYRIC_FORMATS.map((format) => {
+  return { label: format.toUpperCase(), value: format }
 })
-const formatOptions = LYRIC_FORMATS.map((format) => ({ label: format.toUpperCase(), value: format }))
+
+let readRevision = 0
+
 const selectFormat = (value: LyricFormat) => {
   format.value = value
 }
+
 const handleFile: UploadOnChange = ({ file }) => {
   if (file.status !== 'pending' || !file.file) {
     return
   }
+
   const expected = ++readRevision
   fileError.value = false
+
   void file.file
     .text()
     .then((content) => {
       if (expected !== readRevision) {
         return
       }
+
       const extension = file.name.split('.').at(-1)?.toLowerCase()
       format.value = LYRIC_FORMATS.find((format) => format === extension) ?? detectFormat(content) ?? format.value
       text.value = content
@@ -46,27 +52,35 @@ const handleFile: UploadOnChange = ({ file }) => {
       }
     })
 }
+
 const apply = () => {
   readRevision++
   if (props.player.applySource({ ...props.player.draft })) {
     message.success(props.i18n.t('lyric.applied'))
   }
 }
+
 const clear = () => {
   readRevision++
   fileError.value = false
   props.player.clearLyric()
 }
+
 const updateIntro = (value: number | null) => {
   if (value !== null && Number.isSafeInteger(value)) {
     props.player.options.instrumental.minIntroDuration = value
   }
 }
+
 const updateGap = (value: number | null) => {
   if (value !== null && Number.isSafeInteger(value)) {
     props.player.options.instrumental.minDuration = value
   }
 }
+
+onScopeDispose(() => {
+  readRevision++
+})
 </script>
 
 <template>
@@ -143,7 +157,9 @@ const updateGap = (value: number | null) => {
       </NAlert>
       <div class="panel-row">
         <NButton size="small" secondary data-testid="clear-lyric" @click="clear">{{ i18n.t('lyric.clear') }}</NButton>
-        <NButton size="small" type="primary" data-testid="apply-lyric" @click="apply">{{ i18n.t('lyric.apply') }}</NButton>
+        <NButton size="small" type="primary" data-testid="apply-lyric" @click="apply">
+          {{ i18n.t('lyric.apply') }}
+        </NButton>
       </div>
     </div>
     <section class="panel-section">
@@ -155,37 +171,39 @@ const updateGap = (value: number | null) => {
             <div class="field-hint">{{ i18n.t('parser.languageHint') }}</div>
           </div>
         </NFormItem>
-        <NFormItem :label="i18n.t('parser.background')"
-          ><NSwitch :value="player.options.extractBackgrounds" @update:value="player.options.extractBackgrounds = $event"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('parser.brackets')"
-          ><NSwitch :value="player.options.stripBrackets" @update:value="player.options.stripBrackets = $event"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('parser.spaces')"
-          ><NSwitch :value="player.options.insertSpaces" @update:value="player.options.insertSpaces = $event"
-        /></NFormItem>
-        <NFormItem :label="i18n.t('parser.instrumental')"
-          ><NSwitch :value="player.options.instrumental.enabled" @update:value="player.options.instrumental.enabled = $event"
-        /></NFormItem>
+        <NFormItem :label="i18n.t('parser.background')">
+          <NSwitch :value="player.options.extractBackgrounds" @update:value="player.options.extractBackgrounds = $event" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('parser.brackets')">
+          <NSwitch :value="player.options.stripBrackets" @update:value="player.options.stripBrackets = $event" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('parser.spaces')">
+          <NSwitch :value="player.options.insertSpaces" @update:value="player.options.insertSpaces = $event" />
+        </NFormItem>
+        <NFormItem :label="i18n.t('parser.instrumental')">
+          <NSwitch :value="player.options.instrumental.enabled" @update:value="player.options.instrumental.enabled = $event" />
+        </NFormItem>
         <template v-if="player.options.instrumental.enabled">
-          <NFormItem :label="i18n.t('parser.intro')"
-            ><NInputNumber
+          <NFormItem :label="i18n.t('parser.intro')">
+            <NInputNumber
               :value="player.options.instrumental.minIntroDuration"
               :min="0"
               :max="2147483647"
               :step="500"
               :precision="0"
               @update:value="updateIntro"
-          /></NFormItem>
-          <NFormItem :label="i18n.t('parser.gap')"
-            ><NInputNumber
+            />
+          </NFormItem>
+          <NFormItem :label="i18n.t('parser.gap')">
+            <NInputNumber
               :value="player.options.instrumental.minDuration"
               :min="0"
               :max="2147483647"
               :step="500"
               :precision="0"
               @update:value="updateGap"
-          /></NFormItem>
+            />
+          </NFormItem>
         </template>
       </NForm>
     </section>

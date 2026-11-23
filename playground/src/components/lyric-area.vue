@@ -7,6 +7,7 @@ import { onMounted, useTemplateRef } from 'vue'
 
 const props = defineProps<{ player: ReturnType<typeof usePlayer>; i18n: ReturnType<typeof useI18n> }>()
 const host = useTemplateRef<HTMLDivElement>('host')
+
 onMounted(() => {
   host.value?.appendChild(props.player.renderer.element)
 })

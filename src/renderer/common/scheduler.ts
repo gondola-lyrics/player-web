@@ -9,6 +9,7 @@ export class UpdateScheduler {
     if (this.isDisposed) {
       return
     }
+
     this.callback()
   }
 
@@ -19,6 +20,7 @@ export class UpdateScheduler {
     if (this.isDisposed || this.pending) {
       return
     }
+
     this.pending = true
     queueMicrotask(this.flush)
   }

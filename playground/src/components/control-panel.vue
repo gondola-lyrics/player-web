@@ -10,12 +10,19 @@ import AudioPanel from './panels/audio-panel.vue'
 import LyricPanel from './panels/lyric-panel.vue'
 import SettingsPanel from './panels/settings-panel.vue'
 
-defineProps<{ player: ReturnType<typeof usePlayer>; settings: ReturnType<typeof useSettings>; i18n: ReturnType<typeof useI18n> }>()
+defineProps<{
+  player: ReturnType<typeof usePlayer>
+  settings: ReturnType<typeof useSettings>
+  i18n: ReturnType<typeof useI18n>
+}>()
 const tab = defineModel<string>('tab', { required: true })
+
 const TABS = ['audio', 'lyric', 'settings'] as const
 type PanelTab = (typeof TABS)[number]
+
 const navigate = async (event: KeyboardEvent, name: PanelTab) => {
   let target = TABS.indexOf(name)
+
   switch (event.key) {
     case 'ArrowRight':
       target = (target + 1) % TABS.length
@@ -35,11 +42,13 @@ const navigate = async (event: KeyboardEvent, name: PanelTab) => {
     default:
       return
   }
+
   event.preventDefault()
   tab.value = TABS[target]!
   await nextTick()
   document.getElementById(`panel-tab-${tab.value}`)?.focus()
 }
+
 const tabProps = (name: PanelTab) => {
   return {
     id: `panel-tab-${name}`,
@@ -76,8 +85,9 @@ const tabProps = (name: PanelTab) => {
         role="tabpanel"
         aria-labelledby="panel-tab-audio"
         display-directive="show"
-        ><AudioPanel :player="player" :i18n="i18n"
-      /></NTabPane>
+      >
+        <AudioPanel :player="player" :i18n="i18n" />
+      </NTabPane>
       <NTabPane
         id="panel-content-lyric"
         name="lyric"
@@ -86,8 +96,9 @@ const tabProps = (name: PanelTab) => {
         role="tabpanel"
         aria-labelledby="panel-tab-lyric"
         display-directive="show"
-        ><LyricPanel :player="player" :i18n="i18n"
-      /></NTabPane>
+      >
+        <LyricPanel :player="player" :i18n="i18n" />
+      </NTabPane>
       <NTabPane
         id="panel-content-settings"
         name="settings"
@@ -96,8 +107,9 @@ const tabProps = (name: PanelTab) => {
         role="tabpanel"
         aria-labelledby="panel-tab-settings"
         display-directive="show"
-        ><SettingsPanel :player="player" :settings="settings" :i18n="i18n"
-      /></NTabPane>
+      >
+        <SettingsPanel :player="player" :settings="settings" :i18n="i18n" />
+      </NTabPane>
     </NTabs>
   </div>
 </template>

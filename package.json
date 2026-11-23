@@ -30,7 +30,8 @@
     "bump-version": "tsx script/bump-version.ts",
     "release": "tsx script/release.ts",
     "check": "tsc --noEmit",
-    "format": "prettier --write src script"
+    "format": "prettier --write src script vite.config.ts tsconfig.json package.json .prettierrc",
+    "format:check": "prettier --check src script vite.config.ts tsconfig.json package.json .prettierrc"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

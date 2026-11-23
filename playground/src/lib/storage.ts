@@ -33,18 +33,25 @@ export const writeStorage = (key: string, value: unknown): boolean => {
  * Rejects array and primitive storage payloads before individual fields are restored.
  */
 export const readRecord = (value: unknown): Record<string, unknown> => {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return value as Record<string, unknown>
 }
 
 const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1)
+
     request.onupgradeneeded = () => {
       request.result.createObjectStore(STORE)
     }
+
     request.onsuccess = () => {
       resolve(request.result)
     }
+
     request.onerror = () => {
       reject(request.error)
     }
@@ -53,9 +60,11 @@ const openDatabase = (): Promise<IDBDatabase> => {
 
 const transact = async <T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
   const database = await openDatabase()
+
   return new Promise((resolve, reject) => {
     let transaction: IDBTransaction
     let request: IDBRequest<T>
+
     try {
       transaction = database.transaction(STORE, mode)
       request = action(transaction.objectStore(STORE))
@@ -64,14 +73,17 @@ const transact = async <T>(mode: IDBTransactionMode, action: (store: IDBObjectSt
       reject(error)
       return
     }
+
     transaction.oncomplete = () => {
       database.close()
       resolve(request.result)
     }
+
     transaction.onabort = () => {
       database.close()
       reject(transaction.error ?? new Error('Media storage transaction aborted'))
     }
+
     transaction.onerror = () => {
       database.close()
       reject(transaction.error)
@@ -83,8 +95,11 @@ const transact = async <T>(mode: IDBTransactionMode, action: (store: IDBObjectSt
  * Restores only local media blobs recorded by this playground.
  */
 export const loadAudio = async (): Promise<StoredAudio | null> => {
-  const value: unknown = await transact('readonly', (store) => store.get('audio'))
+  const value: unknown = await transact('readonly', (store) => {
+    return store.get('audio')
+  })
   const saved = readRecord(value)
+
   return saved.file instanceof Blob && typeof saved.name === 'string' ? { file: saved.file, name: saved.name } : null
 }
 
@@ -93,8 +108,12 @@ export const loadAudio = async (): Promise<StoredAudio | null> => {
  */
 export const saveAudio = async (audio: StoredAudio | null) => {
   if (audio) {
-    await transact('readwrite', (store) => store.put(audio, 'audio'))
+    await transact('readwrite', (store) => {
+      return store.put(audio, 'audio')
+    })
   } else {
-    await transact('readwrite', (store) => store.delete('audio'))
+    await transact('readwrite', (store) => {
+      return store.delete('audio')
+    })
   }
 }

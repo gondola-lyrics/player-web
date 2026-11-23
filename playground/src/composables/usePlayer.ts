@@ -5,9 +5,10 @@ import type { MessageKey } from '../locales/en-us'
 
 import { TimingLevel } from '@gondola-lyrics/model/common'
 import { EnrichedLyricStatus, makeEnrichedLyric } from '@gondola-lyrics/model/enriched'
+import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
+
 import { CorePlayer } from '@gondola-lyrics/player/core'
 import { DomRenderer } from '@gondola-lyrics/player/renderer'
-import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 
 import { parseSource, readLyricSource, readParserOptions } from '../lib/parser'
 import { readRecord, readStorage, writeStorage } from '../lib/storage'
@@ -22,6 +23,7 @@ export const usePlayer = () => {
   const media = useAudio()
   const core = new CorePlayer()
   const renderer = new DomRenderer(core)
+
   const saved = readRecord(readStorage(SOURCE_KEY))
   const savedSource = readLyricSource(saved.source)
   const source = shallowRef<LyricSource | null>(null)
@@ -33,6 +35,8 @@ export const usePlayer = () => {
   const storageAvailable = ref(true)
   const previewTime = ref<number | null>(null)
   const currentTime = computed(() => previewTime.value ?? media.state.currentTime)
+  const draft = reactive(readLyricSource())
+
   let previewRevision = -1
   let revision = 0
   let disposed = false
@@ -41,6 +45,7 @@ export const usePlayer = () => {
     if (disposed) {
       return
     }
+
     if (previewTime.value !== null) {
       core.pause()
       core.seek(previewTime.value)
@@ -51,20 +56,22 @@ export const usePlayer = () => {
       core.seek(media.state.currentTime)
     }
   }
-  watch(() => [media.state.playing, media.state.waiting, media.state.seeking, media.element.value], synchronize)
-  watch(
-    () => media.state.currentTime,
-    (time) => {
-      if (previewTime.value !== null || disposed) {
-        return
-      }
-      if (!core.currentPlaying || Math.abs(core.currentTime - time) > 120) {
-        core.seek(time)
-      }
-    },
-  )
+
+  const handleMediaTime = (time: number) => {
+    if (previewTime.value !== null || disposed) {
+      return
+    }
+
+    if (!core.currentPlaying || Math.abs(core.currentTime - time) > 120) {
+      core.seek(time)
+    }
+  }
+
   const persist = () => {
-    storageAvailable.value = writeStorage(SOURCE_KEY, { source: source.value, options: readParserOptions(options) }) && storageAvailable.value
+    const preferences = { source: source.value, options: readParserOptions(options) }
+    const stored = writeStorage(SOURCE_KEY, preferences)
+
+    storageAvailable.value = stored && storageAvailable.value
   }
 
   /**
@@ -74,27 +81,34 @@ export const usePlayer = () => {
     if (disposed) {
       return false
     }
+
     error.value = ''
     errorDetail.value = ''
+
     try {
       const normalized = readLyricSource(input)
-      const parsed = parseSource(normalized, readParserOptions(options))
+      const parserOptions = readParserOptions(options)
+      const parsed = parseSource(normalized, parserOptions)
+
       diagnostics.value = parsed.diagnostics
       if (parsed.lyric.status !== EnrichedLyricStatus.VALID) {
         error.value = 'lyric.error'
         return false
       }
+
       revision++
       previewTime.value = null
       if (input !== source.value) {
         source.value = normalized
       }
+
       core.updateLyric(parsed.lyric)
       lyric.value = core.currentInfo
       synchronize()
       if (save) {
         persist()
       }
+
       return true
     } catch (cause) {
       error.value = 'lyric.error'
@@ -102,11 +116,6 @@ export const usePlayer = () => {
       return false
     }
   }
-
-  const draft = reactive(readLyricSource())
-  watch(source, (value) => {
-    Object.assign(draft, readLyricSource(value))
-  })
 
   /**
    * Starts a preview transaction tied to the current audio and lyric revisions.
@@ -145,9 +154,11 @@ export const usePlayer = () => {
     if (disposed || previewTime.value === null || previewRevision !== revision) {
       return
     }
+
     const time = previewTime.value
     previewTime.value = null
     previewRevision = -1
+
     media.seek(time)
     synchronize()
   }
@@ -158,6 +169,7 @@ export const usePlayer = () => {
   const seek = (milliseconds: number) => {
     previewTime.value = null
     previewRevision = -1
+
     media.seek(milliseconds)
     synchronize()
   }
@@ -168,6 +180,7 @@ export const usePlayer = () => {
   const setAudioFile = async (file: File): Promise<boolean> => {
     revision++
     cancelPreview()
+
     return await media.setFile(file, file.name)
   }
 
@@ -177,6 +190,7 @@ export const usePlayer = () => {
   const clearAudio = () => {
     revision++
     cancelPreview()
+
     media.clear()
     synchronize()
   }
@@ -187,12 +201,15 @@ export const usePlayer = () => {
   const clearLyric = () => {
     revision++
     cancelPreview()
+
     source.value = null
     Object.assign(draft, readLyricSource())
     diagnostics.value = []
     error.value = ''
     errorDetail.value = ''
-    core.updateLyric(makeEnrichedLyric({ status: EnrichedLyricStatus.VALID, timing: TimingLevel.NONE }))
+
+    const empty = makeEnrichedLyric({ status: EnrichedLyricStatus.VALID, timing: TimingLevel.NONE })
+    core.updateLyric(empty)
     lyric.value = core.currentInfo
     synchronize()
     persist()
@@ -203,6 +220,13 @@ export const usePlayer = () => {
       seek(core.convertContentTime(line.time.start))
     }
   }
+
+  watch(() => [media.state.playing, media.state.waiting, media.state.seeking, media.element.value], synchronize)
+  watch(() => media.state.currentTime, handleMediaTime)
+  watch(source, (value) => {
+    Object.assign(draft, readLyricSource(value))
+  })
+
   renderer.event.add('line-click', handleLineClick)
   watch(
     options,
@@ -215,12 +239,15 @@ export const usePlayer = () => {
     },
     { deep: true },
   )
+
   if (savedSource.text.trim()) {
     applySource(savedSource, false)
   }
   Object.assign(draft, readLyricSource(source.value))
+
   window.addEventListener('blur', cancelPreview)
   window.addEventListener('touchcancel', cancelPreview, true)
+
   onScopeDispose(() => {
     disposed = true
     previewTime.value = null
@@ -230,6 +257,7 @@ export const usePlayer = () => {
     renderer.dispose()
     core.dispose()
   })
+
   return {
     core,
     renderer,

@@ -20,6 +20,7 @@ export class RenderTimeline {
     this.boundaries.length = 0
     this.updating.clear()
     this.cursor = 0
+
     for (const cue of cues) {
       const { start, end } = cue.range
       this.boundaries.push({ at: start, cue })
@@ -28,6 +29,7 @@ export class RenderTimeline {
       }
       this.updating.add(cue)
     }
+
     this.boundaries.sort((a, b) => a.at - b.at)
   }
 
@@ -40,15 +42,18 @@ export class RenderTimeline {
       this.cursor--
       this.updating.add(this.boundaries[this.cursor]!.cue)
     }
+
     while (this.cursor < this.boundaries.length && this.boundaries[this.cursor]!.at <= lyricTime) {
       this.updating.add(this.boundaries[this.cursor]!.cue)
       this.cursor++
     }
+
     for (const cue of this.updating) {
       if (!cue.update(lyricTime)) {
         this.updating.delete(cue)
       }
     }
+
     return this.updating.size > 0 ? lyricTime : (this.boundaries[this.cursor]?.at ?? Infinity)
   }
 }

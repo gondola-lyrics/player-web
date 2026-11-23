@@ -22,7 +22,6 @@ export class DomRenderer {
   private readonly context: RenderContext
   private mode: RenderMode
   private isDisposed = false
-
   private cancelTimeUpdate?: () => void
 
   /**
@@ -36,6 +35,7 @@ export class DomRenderer {
     this.config = new ConfigManager(DEFAULT, config, validateConfig)
     this.scheduler = new UpdateScheduler(this.flush)
     this.container = new Container(this.handleResize)
+
     const container = this.container
     this.context = {
       get document() {
@@ -52,6 +52,7 @@ export class DomRenderer {
         this.event.emit('line-context-menu', line, index, event)
       },
     }
+
     this.mode = this.startMode()
 
     this.tracker = new ChangeTracker(player, this.request, () => {
@@ -78,6 +79,7 @@ export class DomRenderer {
     if (this.isDisposed) {
       return
     }
+
     if (keys.has('mode')) {
       // Creating first keeps the current mode in place when the new one fails to construct.
       const next = this.startMode()
@@ -85,6 +87,7 @@ export class DomRenderer {
       this.mode = next
       this.tracker.mark({ lyric: true })
     }
+
     this.tracker.mark({ config: keys })
     this.request()
   }
@@ -107,11 +110,13 @@ export class DomRenderer {
     const next = this.mode.updateTime(lyricTime)
     this.cancelTimeUpdate?.()
     this.cancelTimeUpdate = undefined
+
     const view = this.context.document.defaultView
     const delay = this.player.currentPlaying ? next - lyricTime : Infinity
     if (this.isDisposed || !view || !Number.isFinite(delay)) {
       return
     }
+
     if (delay <= 0) {
       const frame = view.requestAnimationFrame(this.updateTime)
       this.cancelTimeUpdate = () => {
@@ -141,14 +146,17 @@ export class DomRenderer {
     if (this.isDisposed) {
       return
     }
+
     this.isDisposed = true
     this.tracker.dispose()
     this.config.event.remove('update', this.handleConfigUpdate)
     this.scheduler.dispose()
     this.cancelTimeUpdate?.()
     this.cancelTimeUpdate = undefined
+
     this.mode.dispose()
     this.container.dispose()
+
     this.event.emit('dispose')
     this.event.clear()
   }

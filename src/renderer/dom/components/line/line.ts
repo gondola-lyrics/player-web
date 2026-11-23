@@ -75,6 +75,7 @@ export class LineObject {
         this.element.appendChild(backgroundElement)
       }
     }
+
     this.updateConfig(config)
     this.element.addEventListener('click', this.handleClick)
     this.element.addEventListener('contextmenu', this.handleContextMenu)
@@ -85,15 +86,19 @@ export class LineObject {
     element.className = buildClassName('normal')
     element.classList.toggle(buildClassName('background'), background)
     element.dataset.role = 'line-normal'
+
     const language = source.languages.find((language) => language.trim().length > 0)
     if (language) {
       element.lang = language
     }
+
     const text = document.createElement('div')
     text.dataset.role = 'line-normal-text'
     element.appendChild(text)
+
     const part: VocalPart = { element, text, source, background, cues: [], active: false, lyricTime: -Infinity }
     this.updateWords(part, wordsEnabled)
+
     if (source.time) {
       part.cues.push({
         range: source.time,
@@ -104,7 +109,9 @@ export class LineObject {
         },
       })
     }
+
     this.parts.push(part)
+
     return part
   }
 
@@ -113,6 +120,7 @@ export class LineObject {
     if (part.words !== undefined && timed === Boolean(part.words)) {
       return
     }
+
     part.words?.dispose()
     part.text.className = buildClassName(timed ? 'syllable' : 'plain')
     if (timed) {
@@ -127,6 +135,7 @@ export class LineObject {
     const current = isTimeInTimeRange(part.source.time, part.lyricTime)
     const active = part.active || current
     const played = !active && part.lyricTime >= (part.source.time?.end ?? Infinity)
+
     part.element.toggleAttribute('active', active)
     part.element.toggleAttribute('played', played)
     part.text.toggleAttribute('active', active)
@@ -140,6 +149,7 @@ export class LineObject {
     if (event.defaultPrevented) {
       return
     }
+
     const selection = this.element.ownerDocument.getSelection()
     if (event.detail > 0 && selection && !selection.isCollapsed) {
       for (let index = 0; index < selection.rangeCount; index++) {
@@ -148,6 +158,7 @@ export class LineObject {
         }
       }
     }
+
     this.interactions.click(this.line, this.index, event)
   }
 
@@ -161,9 +172,11 @@ export class LineObject {
   updateConfig(config: LineConfigRequired) {
     const size = Number.isFinite(config.font.size) && config.font.size > 0 ? config.font.size : DEFAULT.font.size
     const weight = Number.isFinite(config.font.weight) ? config.font.weight : DEFAULT.font.weight
+
     this.element.style.setProperty(FONT_SIZE, `${size}px`)
     this.element.style.setProperty(FONT_FAMILY, config.font.family || 'inherit')
     this.element.style.setProperty(FONT_WEIGHT, String(weight))
+
     for (const part of this.parts) {
       this.updateWords(part, config.words.enabled)
     }
@@ -185,11 +198,13 @@ export class LineObject {
     this.element.toggleAttribute('active', active)
     this.element.toggleAttribute('played', !active && lyricTime >= (this.line.time?.end ?? Infinity))
     this.element.toggleAttribute('data-current', current)
+
     if (current) {
       this.element.setAttribute('aria-current', 'true')
     } else {
       this.element.removeAttribute('aria-current')
     }
+
     if (this.main) {
       this.main.active = active
       this.main.element.toggleAttribute('data-current', current)
@@ -213,6 +228,7 @@ export class LineObject {
     const anchorY = this.main
       ? this.main.element.offsetTop + this.main.text.offsetTop + this.main.text.offsetHeight / 2
       : (this.instrumental?.offsetTop ?? 0) + (this.instrumental?.offsetHeight ?? 0) / 2
+
     return { height: this.element.offsetHeight, anchorY }
   }
 
@@ -222,9 +238,11 @@ export class LineObject {
   dispose() {
     this.element.removeEventListener('click', this.handleClick)
     this.element.removeEventListener('contextmenu', this.handleContextMenu)
+
     for (const part of this.parts) {
       part.words?.dispose()
     }
+
     this.parts.length = 0
     this.element.remove()
   }
