@@ -5,8 +5,8 @@ import type { RenderMode } from '@root/renderer/dom/modes/types'
 
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
-import { LineObject } from '@root/renderer/dom/components/line/line'
 import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
+import { LineObject } from '@root/renderer/dom/components/line/line'
 import { RenderTimeline } from '@root/renderer/dom/timeline'
 
 import { DEFAULT } from './config'

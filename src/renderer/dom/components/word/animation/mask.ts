@@ -5,8 +5,8 @@ import { getTimeRangeProgress } from '@gondola-lyrics/model/common'
 
 import { buildRootVariableKey } from '@root/renderer/dom/css'
 
-const MASK_ACTIVE_OPACITY = `var(${buildRootVariableKey('mask-active-opacity')})`
-const MASK_NORMAL_OPACITY = `var(${buildRootVariableKey('mask-normal-opacity')})`
+const MASK_ACTIVE_OPACITY = `var(${buildRootVariableKey('mask-active-opacity')}, 1)`
+const MASK_NORMAL_OPACITY = `var(${buildRootVariableKey('mask-normal-opacity')}, 1)`
 
 export interface MaskWord {
   readonly wipe: HTMLElement

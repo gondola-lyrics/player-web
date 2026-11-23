@@ -1,0 +1,71 @@
+@use '@root/renderer/dom/components/common.scss' as *;
+
+.#{build-class-name('syllable')}[data-role='line-normal-text'] {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  @include apply-line-font('main-syllable');
+
+  .#{build-class-name('cell')} {
+    @include set-root-variable('emphasize-padding-horizontal', 0px);
+    @include set-root-variable('emphasize-padding-vertical', 0px);
+    @include set-root-variable('word-gap', 0px);
+    @include set-root-variable('word-align-top', 0px);
+
+    display: inline-block;
+    vertical-align: top;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    padding-top: build-root-variable('word-align-top');
+    margin: calc(-1 * #{build-root-variable('emphasize-padding-vertical')})
+      calc(#{build-root-variable('word-gap')} - #{build-root-variable('emphasize-padding-horizontal')});
+  }
+
+  .#{build-class-name('wipe')} {
+    @include set-root-variable('mask-normal-opacity', 1);
+    @include set-root-variable('mask-active-opacity', build-line-variable('line-normal-main-syllable-active-opacity', 1));
+
+    display: inline-block;
+    vertical-align: top;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    mask-mode: alpha;
+    mask-repeat: no-repeat;
+  }
+
+  .#{build-class-name('word')} {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
+    box-sizing: border-box;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    transition: opacity 0.8s ease;
+    padding: build-root-variable('emphasize-padding-vertical') build-root-variable('emphasize-padding-horizontal');
+
+    @include apply-line-style('main-syllable', currentColor, 0.6);
+  }
+
+  .#{build-class-name('char')} {
+    display: inline-block;
+  }
+
+  &[played]:not([scrolling] [played]) .#{build-class-name('word')} {
+    @include apply-line-style('main-syllable-played', currentColor, 0.4);
+  }
+
+  &[active] {
+    .#{build-class-name('word')} {
+      @include apply-line-style('main-syllable-active', currentColor, 1);
+      transition-duration: 0s;
+    }
+
+    .#{build-class-name('wipe')} {
+      @include set-root-variable(
+        'mask-normal-opacity',
+        calc(#{build-line-variable('line-normal-main-syllable-opacity', 0.6)} / #{build-line-variable('line-normal-main-syllable-active-opacity', 1)})
+      );
+    }
+  }
+}

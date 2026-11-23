@@ -1,4 +1,43 @@
-@use '@root/renderer/dom/css.scss' as *;
+@use '@root/renderer/dom/components/common.scss' as *;
+
+.#{build-class-name('normal')}[data-role='line-normal'] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  row-gap: 8px;
+  min-width: 0;
+  line-height: 1.35;
+  transition: opacity 0.6s ease;
+
+  @include apply-line-font('base');
+  @include apply-line-style('base');
+
+  > .#{build-class-name('plain')} {
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    @include apply-line-font('main-syllable');
+    @include apply-line-style('main-syllable');
+  }
+
+  &[played]:not([scrolling] [played]) {
+    @include apply-line-style('base-played');
+
+    > .#{build-class-name('plain')} {
+      @include apply-line-style('main-syllable-played');
+    }
+  }
+
+  &[active] {
+    @include apply-line-style('base-active');
+
+    > .#{build-class-name('plain')} {
+      @include apply-line-style('main-syllable-active');
+      transition-duration: 0s;
+    }
+  }
+}
 
 .#{build-class-name('wrapper')}[data-role='line'] {
   position: relative;

@@ -13,9 +13,6 @@ export class TimedWords {
   private readonly words: WordElement[] = []
   private readonly mask: MaskAnimationHost
 
-  /**
-   * Shares the line's continuous wipe while each word retains its own motion and emphasis.
-   */
   constructor(text: HTMLElement, words: readonly EnrichedWord[], range: TimeRange | undefined, background: boolean) {
     const document = text.ownerDocument
     const fragment = document.createDocumentFragment()

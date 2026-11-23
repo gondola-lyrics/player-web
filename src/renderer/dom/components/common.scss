@@ -8,7 +8,7 @@
   font-family: build-line-variable('line-normal-#{$element}-font-family', inherit);
 }
 
-@mixin apply-line-style($element) {
-  color: build-line-variable('line-normal-#{$element}-color');
-  opacity: build-line-variable('line-normal-#{$element}-opacity');
+@mixin apply-line-style($element, $color: null, $opacity: null) {
+  color: build-line-variable('line-normal-#{$element}-color', $color);
+  opacity: build-line-variable('line-normal-#{$element}-opacity', $opacity);
 }

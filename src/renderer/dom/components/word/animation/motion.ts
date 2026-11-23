@@ -32,9 +32,6 @@ export class WordMotion {
   private readonly emphasis: Animation[] = []
   private lastTime = NaN
 
-  /**
-   * The clock covers each entrance and release so seeking into either reproduces the same pose as playback.
-   */
   constructor(
     private readonly word: HTMLElement,
     private readonly chars: readonly HTMLElement[],
