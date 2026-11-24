@@ -1,5 +1,6 @@
 import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
 import type { TimeCue } from '@root/renderer/dom/timeline'
+import type { WordConfigRequired } from '@root/renderer/dom/components/word/config'
 import type { LineConfigRequired } from './config'
 import type { LineInteractions } from './content'
 
@@ -13,54 +14,114 @@ import { LineContentElement } from './content'
 const FONT_SIZE = buildLineVariableKey('line-normal-base-font-size')
 const FONT_FAMILY = buildLineVariableKey('line-normal-base-font-family')
 const FONT_WEIGHT = buildLineVariableKey('line-normal-base-font-weight')
+const STYLE_STATES = ['normal', 'active', 'played'] as const
+const STYLE_VARIABLES = {
+  normal: {
+    color: buildLineVariableKey('line-normal-main-syllable-color'),
+    opacity: buildLineVariableKey('line-normal-main-syllable-opacity'),
+  },
+  active: {
+    color: buildLineVariableKey('line-normal-main-syllable-active-color'),
+    opacity: buildLineVariableKey('line-normal-main-syllable-active-opacity'),
+  },
+  played: {
+    color: buildLineVariableKey('line-normal-main-syllable-played-color'),
+    opacity: buildLineVariableKey('line-normal-main-syllable-played-opacity'),
+  },
+}
 
 export class LineElement {
   readonly element: HTMLDivElement
 
   private readonly main: LineContentElement
   private readonly backgrounds: LineContentElement[] = []
+  private config?: LineConfigRequired
+  private wordConfig: WordConfigRequired
+  private active?: boolean
+  private played?: boolean
+  private current?: boolean
 
   constructor(
     document: Document,
     private readonly line: EnrichedLine,
     index: number,
     config: LineConfigRequired,
+    word: WordConfigRequired,
     interactions: LineInteractions,
   ) {
+    this.wordConfig = word
     this.element = document.createElement('div')
     this.element.className = buildClassName('wrapper')
     this.element.dataset.role = 'line'
     this.element.dataset.lineIndex = String(index)
     this.element.dataset.type = line.type === EnrichedLineType.INSTRUMENTAL ? 'instrumental' : 'normal'
 
-    this.main = new LineContentElement(document, line, index, config, interactions)
+    this.main = new LineContentElement(document, line, index, word, interactions)
     this.element.appendChild(this.main.element)
 
     if (line.type !== EnrichedLineType.INSTRUMENTAL) {
       for (const background of line.backgrounds) {
-        const content = new LineContentElement(document, background, index, config, interactions, true)
+        const content = new LineContentElement(document, background, index, word, interactions, true)
         this.backgrounds.push(content)
         this.element.appendChild(content.element)
       }
     }
 
-    this.updateConfig(config)
+    this.updateConfig(config, word)
+  }
+
+  private updateFont(font: LineConfigRequired['font'], previous?: LineConfigRequired['font']) {
+    const style = this.element.style
+    if (font.size !== previous?.size) {
+      const size = Number.isFinite(font.size) && font.size > 0 ? font.size : DEFAULT.font.size
+      style.setProperty(FONT_SIZE, `${size}px`)
+    }
+    if (font.family !== previous?.family) {
+      style.setProperty(FONT_FAMILY, font.family || 'inherit')
+    }
+    if (font.weight !== previous?.weight) {
+      const weight = Number.isFinite(font.weight) ? font.weight : DEFAULT.font.weight
+      style.setProperty(FONT_WEIGHT, String(weight))
+    }
+  }
+
+  private updateStyle(styles: LineConfigRequired['style'], previous?: LineConfigRequired['style']) {
+    const style = this.element.style
+    for (const state of STYLE_STATES) {
+      const current = styles[state]
+      const before = previous?.[state]
+      if (current === before) {
+        continue
+      }
+
+      const variables = STYLE_VARIABLES[state]
+      if (current.color !== before?.color) {
+        style.setProperty(variables.color, current.color)
+      }
+      if (current.opacity !== before?.opacity) {
+        style.setProperty(variables.opacity, String(current.opacity))
+      }
+    }
   }
 
   /**
-   * Shares the row's font while each main or background content keeps its own word instance.
+   * Writes changed appearance fields and updates word content only when its configuration changes.
    */
-  updateConfig(config: LineConfigRequired) {
-    const size = Number.isFinite(config.font.size) && config.font.size > 0 ? config.font.size : DEFAULT.font.size
-    const weight = Number.isFinite(config.font.weight) ? config.font.weight : DEFAULT.font.weight
+  updateConfig(config: LineConfigRequired, word: WordConfigRequired) {
+    if (config.font !== this.config?.font) {
+      this.updateFont(config.font, this.config?.font)
+    }
+    if (config.style !== this.config?.style) {
+      this.updateStyle(config.style, this.config?.style)
+    }
+    this.config = config
 
-    this.element.style.setProperty(FONT_SIZE, `${size}px`)
-    this.element.style.setProperty(FONT_FAMILY, config.font.family || 'inherit')
-    this.element.style.setProperty(FONT_WEIGHT, String(weight))
-
-    this.main.updateConfig(config)
-    for (const background of this.backgrounds) {
-      background.updateConfig(config)
+    if (word !== this.wordConfig) {
+      this.main.updateConfig(word)
+      for (const background of this.backgrounds) {
+        background.updateConfig(word)
+      }
+      this.wordConfig = word
     }
   }
 
@@ -75,14 +136,24 @@ export class LineElement {
    * Applies display and original-time state equally during playback and paused seeks.
    */
   updateState(active: boolean, current: boolean, lyricTime: number) {
-    this.element.toggleAttribute('active', active)
-    this.element.toggleAttribute('played', !active && lyricTime >= (this.line.time?.end ?? Infinity))
-    this.element.toggleAttribute('data-current', current)
+    const played = !active && lyricTime >= (this.line.time?.end ?? Infinity)
+    if (active !== this.active) {
+      this.element.toggleAttribute('active', active)
+      this.active = active
+    }
+    if (played !== this.played) {
+      this.element.toggleAttribute('played', played)
+      this.played = played
+    }
 
-    if (current) {
-      this.element.setAttribute('aria-current', 'true')
-    } else {
-      this.element.removeAttribute('aria-current')
+    if (current !== this.current) {
+      this.element.toggleAttribute('data-current', current)
+      if (current) {
+        this.element.setAttribute('aria-current', 'true')
+      } else {
+        this.element.removeAttribute('aria-current')
+      }
+      this.current = current
     }
 
     this.main.updateState(active, lyricTime)

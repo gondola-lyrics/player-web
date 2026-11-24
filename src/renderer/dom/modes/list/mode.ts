@@ -1,5 +1,5 @@
 import type { RenderChanges } from '@root/renderer/common/types'
-import type { DomRendererConfigKeys, DomRendererConfigRequired } from '@root/renderer/dom/config'
+import type { DomRendererConfigKeys } from '@root/renderer/dom/config'
 import type { RenderContext } from '@root/renderer/dom/context'
 import type { RenderMode } from '@root/renderer/dom/modes/types'
 import type { ListModeConfigRequired } from './config'
@@ -25,6 +25,7 @@ export class ListMode implements RenderMode {
   private readonly timeline = new RenderTimeline()
   private fonts: FontFaceSet
   private lines: LineElement[] = []
+  private alignment?: ListModeConfigRequired['align']
   private layoutDirty = true
   private isDisposed = false
 
@@ -61,13 +62,15 @@ export class ListMode implements RenderMode {
     }
 
     const { document, player, config, onLineClick, onLineContextMenu } = this.context
+    const list = config.current.modes.list
     this.lines = player.currentInfo.lines.map((line, index) => {
-      return new LineElement(document, line, index, config.current.line, {
+      return new LineElement(document, line, index, list.line, list.word, {
         click: onLineClick,
         contextMenu: onLineContextMenu,
       })
     })
     this.content.replaceChildren(...this.lines.map((line) => line.element))
+    this.alignment = undefined
     for (const line of this.lines) {
       this.observer.observe(line.element)
     }
@@ -88,32 +91,42 @@ export class ListMode implements RenderMode {
     this.layoutDirty = true
   }
 
-  private syncContent(changes: RenderChanges<DomRendererConfigKeys>, config: DomRendererConfigRequired) {
+  private syncContent(changes: RenderChanges<DomRendererConfigKeys>, list: ListModeConfigRequired) {
     this.syncFonts()
 
     if (changes.lyric) {
       this.rebuildLines()
-    } else if (changes.config.has('line')) {
+    } else if (changes.config.has('modes.list.line') || changes.config.has('modes.list.word')) {
       for (const line of this.lines) {
-        line.updateConfig(config.line)
+        line.updateConfig(list.line, list.word)
       }
-      this.layoutDirty = true
+      this.layoutDirty ||= changes.config.has('modes.list.line.font') || changes.config.has('modes.list.word.enabled')
     }
 
-    if (changes.lyric || changes.config.has('line.words.enabled')) {
+    if (changes.lyric || changes.config.has('modes.list.word.enabled')) {
       this.timeline.replace(this.lines.flatMap((line) => line.timeCues))
     }
   }
 
-  private updateLineState(align: ListModeConfigRequired['align'], activeIndexes: readonly number[], currentIndexes: readonly number[]) {
+  private updateAlignment(align: ListModeConfigRequired['align']) {
+    if (align === this.alignment) {
+      return
+    }
+
+    this.content.style.textAlign = align
+    for (const line of this.lines) {
+      line.element.setAttribute('position', align)
+      line.element.style.setProperty(LINE_POSITION, align)
+    }
+    this.alignment = align
+  }
+
+  private updateLineState(activeIndexes: readonly number[], currentIndexes: readonly number[]) {
     const active = new Set(activeIndexes)
     const current = new Set(currentIndexes)
     const lyricTime = this.context.player.currentTime + this.context.player.currentOffset
-    this.content.style.textAlign = align
 
     for (const [index, line] of this.lines.entries()) {
-      line.element.setAttribute('position', align)
-      line.element.style.setProperty(LINE_POSITION, align)
       line.updateState(active.has(index), current.has(index), lyricTime)
     }
   }
@@ -153,7 +166,7 @@ export class ListMode implements RenderMode {
     const list = config.modes.list
     const timed = currentInfo.timing === TimingLevel.LINE || currentInfo.timing === TimingLevel.WORD
     const follow = list.scroll.follow && timed
-    this.syncContent(changes, config)
+    this.syncContent(changes, list)
 
     if (changes.seek) {
       this.scroll.reset()
@@ -161,7 +174,8 @@ export class ListMode implements RenderMode {
 
     const activeIndex = follow ? (activeIndexes[0] ?? 0) : undefined
     this.scroll.update(activeIndex, this.lines.length, list.scroll.resumeDelay)
-    this.updateLineState(list.align, activeIndexes, currentIndexes)
+    this.updateAlignment(list.align)
+    this.updateLineState(activeIndexes, currentIndexes)
     this.updateLayout(changes, list, follow)
   }
 

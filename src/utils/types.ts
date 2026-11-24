@@ -23,3 +23,25 @@ export type NestedKeys<T> = {
       ? K | `${K}.${NestedKeys<NonNullable<T[K]>>}`
       : K
 }[keyof T & string]
+
+/**
+ * Excludes leaves and arrays from paths that can expose an editable configuration section.
+ */
+export type NestedObjectKeys<T> = {
+  [K in keyof T & string]: NonNullable<T[K]> extends readonly unknown[]
+    ? never
+    : NonNullable<T[K]> extends object
+      ? K | `${K}.${NestedObjectKeys<NonNullable<T[K]>>}`
+      : never
+}[keyof T & string]
+
+/**
+ * Resolves a path through optional sections while preserving the target field's input type.
+ */
+export type PathValue<T, Path extends string> = Path extends `${infer Key}.${infer Rest}`
+  ? Key extends keyof NonNullable<T>
+    ? PathValue<NonNullable<T>[Key], Rest>
+    : never
+  : Path extends keyof NonNullable<T>
+    ? NonNullable<T>[Path]
+    : never

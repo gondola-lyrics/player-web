@@ -8,7 +8,7 @@ import { ConfigManager, Event } from '@root/utils'
 import { UpdateScheduler } from '@root/renderer/common/scheduler'
 import { ChangeTracker } from '@root/renderer/common/tracker'
 
-import { DEFAULT, validateConfig } from './config'
+import { DEFAULT } from './config'
 import { Container } from './container'
 import { createMode } from './modes'
 
@@ -32,7 +32,7 @@ export class DomRenderer {
     private readonly player: RendererSource,
     config?: DomRendererConfig,
   ) {
-    this.config = new ConfigManager(DEFAULT, config, validateConfig)
+    this.config = new ConfigManager(DEFAULT, config)
     this.scheduler = new UpdateScheduler(this.flush)
     this.container = new Container(this.handleResize)
 

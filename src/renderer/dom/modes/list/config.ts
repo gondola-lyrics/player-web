@@ -1,4 +1,9 @@
 import type { DeepRequired } from '@root/utils'
+import type { LineConfig } from '@root/renderer/dom/components/line/config'
+import type { WordConfig } from '@root/renderer/dom/components/word/config'
+
+import { DEFAULT as LINE_DEFAULT } from '@root/renderer/dom/components/line/config'
+import { DEFAULT as WORD_DEFAULT } from '@root/renderer/dom/components/word/config'
 
 export interface ListScrollAnimationConfig {
   /**
@@ -36,6 +41,8 @@ export interface ListScrollAnimationConfig {
 }
 
 export interface ListModeConfig {
+  line?: LineConfig
+  word?: WordConfig
   /**
    * Space between original lyric rows in pixels.
    *
@@ -73,6 +80,8 @@ export interface ListModeConfig {
 export type ListModeConfigRequired = DeepRequired<ListModeConfig>
 
 export const DEFAULT: ListModeConfigRequired = Object.freeze({
+  line: LINE_DEFAULT,
+  word: WORD_DEFAULT,
   gap: 24,
   align: 'left',
   scroll: Object.freeze({

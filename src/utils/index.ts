@@ -1,4 +1,4 @@
-export type { DeepReadonly, DeepRequired, NestedKeys } from './types'
+export type { DeepReadonly, DeepRequired, NestedKeys, NestedObjectKeys, PathValue } from './types'
 
-export { ConfigManager } from './config'
+export { ConfigManager, ConfigScope } from './config'
 export { Event } from './event'

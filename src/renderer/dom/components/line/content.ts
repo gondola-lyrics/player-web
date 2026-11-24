@@ -1,7 +1,7 @@
 import type { EnrichedLine, EnrichedLineBackground } from '@gondola-lyrics/model/enriched'
 import type { DomRendererEventMap } from '@root/renderer/dom/events'
 import type { TimeCue } from '@root/renderer/dom/timeline'
-import type { LineConfigRequired } from './config'
+import type { WordConfigRequired } from '@root/renderer/dom/components/word/config'
 
 import { isTimeInTimeRange } from '@gondola-lyrics/model/common'
 import { EnrichedLineType, getEnrichedLineContentText, hasEnrichedLineWords } from '@gondola-lyrics/model/enriched'
@@ -22,12 +22,15 @@ export class LineContentElement {
   private words?: TimedWords | null
   private active = false
   private lyricTime = -Infinity
+  private renderedActive?: boolean
+  private renderedPlayed?: boolean
+  private renderedCurrent?: boolean
 
   constructor(
     document: Document,
     private readonly line: EnrichedLine | EnrichedLineBackground,
     private readonly index: number,
-    config: LineConfigRequired,
+    config: WordConfigRequired,
     private readonly interactions: LineInteractions,
     private readonly background = false,
   ) {
@@ -95,11 +98,20 @@ export class LineContentElement {
     const active = this.active || current
     const played = !active && this.lyricTime >= (this.line.time?.end ?? Infinity)
 
-    this.element.toggleAttribute('active', active)
-    this.element.toggleAttribute('played', played)
-    this.element.toggleAttribute('data-current', current)
-    this.text?.toggleAttribute('active', active)
-    this.text?.toggleAttribute('played', played)
+    if (active !== this.renderedActive) {
+      this.element.toggleAttribute('active', active)
+      this.text?.toggleAttribute('active', active)
+      this.renderedActive = active
+    }
+    if (played !== this.renderedPlayed) {
+      this.element.toggleAttribute('played', played)
+      this.text?.toggleAttribute('played', played)
+      this.renderedPlayed = played
+    }
+    if (current !== this.renderedCurrent) {
+      this.element.toggleAttribute('data-current', current)
+      this.renderedCurrent = current
+    }
   }
 
   private handleClick = (event: MouseEvent) => {
@@ -126,8 +138,8 @@ export class LineContentElement {
   /**
    * Keeps the text host stable when switching between plain text and timed words.
    */
-  updateConfig(config: LineConfigRequired) {
-    this.updateWords(config.words.enabled)
+  updateConfig(config: WordConfigRequired) {
+    this.updateWords(config.enabled)
   }
 
   /**

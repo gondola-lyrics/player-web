@@ -24,7 +24,7 @@
 
   .#{build-class-name('wipe')} {
     @include set-root-variable('mask-normal-opacity', 1);
-    @include set-root-variable('mask-active-opacity', build-line-variable('line-normal-main-syllable-active-opacity', 1));
+    @include set-root-variable('mask-active-opacity', 1);
 
     display: inline-block;
     vertical-align: top;
@@ -56,16 +56,25 @@
   }
 
   &[active] {
+    // A shared floor avoids division by zero while the mask preserves the final configured opacity.
+    $maximum: max(
+      0.000001,
+      #{build-line-variable('line-normal-main-syllable-opacity', 0.6)},
+      #{build-line-variable('line-normal-main-syllable-active-opacity', 1)}
+    );
+
     .#{build-class-name('word')} {
       @include apply-line-style('main-syllable-active', currentColor, 1);
       transition-duration: 0s;
     }
 
+    .#{build-class-name('wipe')}[data-masked] > .#{build-class-name('word')} {
+      opacity: $maximum;
+    }
+
     .#{build-class-name('wipe')} {
-      @include set-root-variable(
-        'mask-normal-opacity',
-        calc(#{build-line-variable('line-normal-main-syllable-opacity', 0.6)} / #{build-line-variable('line-normal-main-syllable-active-opacity', 1)})
-      );
+      @include set-root-variable('mask-active-opacity', calc(#{build-line-variable('line-normal-main-syllable-active-opacity', 1)} / #{$maximum}));
+      @include set-root-variable('mask-normal-opacity', calc(#{build-line-variable('line-normal-main-syllable-opacity', 0.6)} / #{$maximum}));
     }
   }
 }

@@ -160,6 +160,7 @@ const applyGeometry = (part: MaskPart, geometry: MaskGeometry) => {
   }
 
   const { width, feather, layers } = geometry
+  part.wipe.setAttribute('data-masked', '')
   const style = part.wipe.style
   if (layers.length === 0) {
     style.maskImage = maskGradient(width, feather)

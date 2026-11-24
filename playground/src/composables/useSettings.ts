@@ -7,25 +7,68 @@ import { onScopeDispose, ref, shallowRef } from 'vue'
 import { readRecord, readStorage, writeStorage } from '../lib/storage'
 
 export const RENDERER_PRESET: DomRendererConfig = {
-  line: { font: { size: 38, weight: 500 } },
-  modes: { list: { gap: 24 } },
+  modes: { list: { line: { font: { size: 38, weight: 500 } }, gap: 24 } },
 }
 
 const SETTINGS_KEY = 'gondola-player-settings-v1'
 const DEFAULT_RESUME_DELAY = 3000
 
+const readRendererConfig = (value: unknown): DomRendererConfig => {
+  const saved = readRecord(value)
+  const modes = readRecord(saved.modes)
+  const list = readRecord(modes.list)
+  const line = readRecord(list.line)
+  if (!Object.hasOwn(saved, 'line') && !Object.hasOwn(line, 'words')) {
+    return saved as DomRendererConfig
+  }
+
+  const { line: legacy, ...renderer } = saved
+  const legacyLine = readRecord(legacy)
+  const { words: legacyWord, ...lineAppearance } = legacyLine
+  const { words: previousWord, ...modeLine } = line
+  const migratedLine = {
+    ...lineAppearance,
+    ...modeLine,
+    font: { ...readRecord(legacyLine.font), ...readRecord(line.font) },
+  }
+  const migratedWord = {
+    ...readRecord(legacyWord),
+    ...readRecord(previousWord),
+    ...readRecord(list.word),
+  }
+
+  return {
+    ...renderer,
+    modes: {
+      ...modes,
+      list: {
+        ...list,
+        line: migratedLine,
+        word: migratedWord,
+      },
+    },
+  } as DomRendererConfig
+}
+
 const pickOverrides = (current: object, defaults: object): Record<string, unknown> => {
+  if (current === defaults) {
+    return {}
+  }
+
   const baseline = defaults as Record<string, unknown>
   const entries: [string, unknown][] = []
 
   for (const [key, value] of Object.entries(current)) {
     const defaultValue = baseline[key]
+    if (Object.is(value, defaultValue)) {
+      continue
+    }
     if (value !== null && typeof value === 'object' && defaultValue !== null && typeof defaultValue === 'object') {
       const children = pickOverrides(value, defaultValue)
       if (Object.keys(children).length > 0) {
         entries.push([key, children])
       }
-    } else if (!Object.is(value, defaultValue)) {
+    } else {
       entries.push([key, value])
     }
   }
@@ -50,9 +93,9 @@ export const useSettings = (player: ReturnType<typeof usePlayer>) => {
     ...savedCore,
     driver: savedCore.driver === 'animation' || savedCore.driver === 'timer' ? savedCore.driver : undefined,
   } as CorePlayerConfig)
-  renderer.config.merge(readRecord(saved.renderer) as DomRendererConfig)
+  renderer.config.merge(readRendererConfig(saved.renderer))
   if (saved.autoResume === false) {
-    renderer.config.merge({ modes: { list: { scroll: { resumeDelay: Infinity } } } })
+    renderer.config.merge('modes.list.scroll.resumeDelay', Infinity)
   }
 
   const coreConfig = shallowRef(core.config.current)
@@ -64,13 +107,17 @@ export const useSettings = (player: ReturnType<typeof usePlayer>) => {
     const config = renderer.config.current
     const scroll = config.modes.list.scroll
     const autoResume = scroll.resumeDelay !== Infinity
+    if (autoResume) {
+      return { config, autoResume }
+    }
+
     const serialized = {
       ...config,
       modes: {
         ...config.modes,
         list: {
           ...config.modes.list,
-          scroll: { ...scroll, resumeDelay: autoResume ? scroll.resumeDelay : DEFAULT_RESUME_DELAY },
+          scroll: { ...scroll, resumeDelay: DEFAULT_RESUME_DELAY },
         },
       },
     }

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { CorePlayerConfig } from '@gondola-lyrics/player/core'
-import type { DomRendererConfig } from '@gondola-lyrics/player/renderer'
 import type { useI18n } from '../../composables/useI18n'
 import type { usePlayer } from '../../composables/usePlayer'
 import type { useSettings } from '../../composables/useSettings'
@@ -14,8 +12,11 @@ const props = defineProps<{
   i18n: ReturnType<typeof useI18n>
 }>()
 const core = computed(() => props.settings.coreConfig.value)
-const renderer = computed(() => props.settings.rendererConfig.value)
-const autoResume = computed(() => renderer.value.modes.list.scroll.resumeDelay !== Infinity)
+const list = computed(() => props.settings.rendererConfig.value.modes.list)
+const autoResume = computed(() => list.value.scroll.resumeDelay !== Infinity)
+const listConfig = computed(() => props.player.renderer.config.scope('modes.list'))
+const lineConfig = computed(() => listConfig.value.scope('line'))
+const scrollConfig = computed(() => listConfig.value.scope('scroll'))
 
 const drivers = computed(() => {
   return [
@@ -32,52 +33,44 @@ const aligns = computed(() => {
   ]
 })
 
-const corePatch = (value: CorePlayerConfig) => {
-  props.player.core.config.merge(value)
-}
-
-const rendererPatch = (value: DomRendererConfig) => {
-  props.player.renderer.config.merge(value)
-}
-
 const isFiniteNumber = (value: number | null): value is number => {
   return value !== null && Number.isFinite(value)
 }
 
 const updateDriver = (value: unknown) => {
   if (value === 'animation' || value === 'timer') {
-    corePatch({ driver: value })
+    props.player.core.config.merge('driver', value)
   }
 }
 
 const updateBridge = (value: boolean) => {
-  corePatch({ bridgeActive: value })
+  props.player.core.config.merge('bridgeActive', value)
 }
 
 const updateMergeWindow = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    corePatch({ mergeWindow: value })
+    props.player.core.config.merge('mergeWindow', value)
   }
 }
 
 const updateMergeLimit = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    corePatch({ mergeLimit: value })
+    props.player.core.config.merge('mergeLimit', value)
   }
 }
 
 const updateGlobalOffset = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    corePatch({ offset: { global: value } })
+    props.player.core.config.merge('offset.global', value)
   }
 }
 
 const updateMetadataOffset = (value: boolean) => {
-  corePatch({ offset: { useMeta: value } })
+  props.player.core.config.merge('offset.useMeta', value)
 }
 
 const updateResetTemporaryOffset = (value: boolean) => {
-  corePatch({ offset: { resetTempOnLyricChange: value } })
+  props.player.core.config.merge('offset.resetTempOnLyricChange', value)
 }
 
 const updateTemporaryOffset = (value: number | null) => {
@@ -88,55 +81,55 @@ const updateTemporaryOffset = (value: number | null) => {
 
 const updateFontSize = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    rendererPatch({ line: { font: { size: value } } })
+    lineConfig.value.merge('font.size', value)
   }
 }
 
 const updateFontWeight = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    rendererPatch({ line: { font: { weight: value } } })
+    lineConfig.value.merge('font.weight', value)
   }
 }
 
 const updateFontFamily = (value: string) => {
-  rendererPatch({ line: { font: { family: value } } })
+  lineConfig.value.merge('font.family', value)
 }
 
 const updateWordHighlight = (value: boolean) => {
-  rendererPatch({ line: { words: { enabled: value } } })
+  listConfig.value.merge('word.enabled', value)
 }
 
 const updateGap = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    rendererPatch({ modes: { list: { gap: value } } })
+    listConfig.value.merge('gap', value)
   }
 }
 
 const updateAlignment = (value: unknown) => {
   if (value === 'left' || value === 'center' || value === 'right') {
-    rendererPatch({ modes: { list: { align: value } } })
+    listConfig.value.merge('align', value)
   }
 }
 
 const updateFollow = (value: boolean) => {
-  rendererPatch({ modes: { list: { scroll: { follow: value } } } })
+  scrollConfig.value.merge('follow', value)
 }
 
 const updateAnchor = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    rendererPatch({ modes: { list: { scroll: { anchor: value } } } })
+    scrollConfig.value.merge('anchor', value)
   }
 }
 
 const updateAutoResume = (value: boolean) => {
   const resumeDelay = value ? 3000 : Infinity
 
-  rendererPatch({ modes: { list: { scroll: { resumeDelay } } } })
+  scrollConfig.value.merge('resumeDelay', resumeDelay)
 }
 
 const updateResumeDelay = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    rendererPatch({ modes: { list: { scroll: { resumeDelay: value } } } })
+    scrollConfig.value.merge('resumeDelay', value)
   }
 }
 </script>
@@ -183,37 +176,37 @@ const updateResumeDelay = (value: number | null) => {
       <NForm label-placement="top" size="small">
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.fontSize')">
-            <NInputNumber :value="renderer.line.font.size" :min="1" :max="160" data-testid="font-size" @update:value="updateFontSize" />
+            <NInputNumber :value="list.line.font.size" :min="1" :max="160" data-testid="font-size" @update:value="updateFontSize" />
           </NFormItem>
           <NFormItem :label="i18n.t('settings.fontWeight')">
-            <NInputNumber :value="renderer.line.font.weight" :min="1" :max="1000" :step="100" @update:value="updateFontWeight" />
+            <NInputNumber :value="list.line.font.weight" :min="1" :max="1000" :step="100" @update:value="updateFontWeight" />
           </NFormItem>
         </div>
         <NFormItem :label="i18n.t('settings.fontFamily')">
-          <NInput :value="renderer.line.font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
+          <NInput :value="list.line.font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
         </NFormItem>
         <NFormItem :label="i18n.t('settings.wordHighlight')">
-          <NSwitch :value="renderer.line.words.enabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
+          <NSwitch :value="list.word.enabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
         </NFormItem>
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.gap')">
-            <NInputNumber :value="renderer.modes.list.gap" :min="0" :max="300" @update:value="updateGap" />
+            <NInputNumber :value="list.gap" :min="0" :max="300" @update:value="updateGap" />
           </NFormItem>
           <NFormItem :label="i18n.t('settings.align')">
-            <NSelect :value="renderer.modes.list.align" :options="aligns" @update:value="updateAlignment" />
+            <NSelect :value="list.align" :options="aligns" @update:value="updateAlignment" />
           </NFormItem>
         </div>
         <NFormItem :label="i18n.t('settings.follow')">
-          <NSwitch :value="renderer.modes.list.scroll.follow" @update:value="updateFollow" />
+          <NSwitch :value="list.scroll.follow" @update:value="updateFollow" />
         </NFormItem>
         <NFormItem :label="i18n.t('settings.anchor')">
-          <NInputNumber :value="renderer.modes.list.scroll.anchor" :min="0" :max="100" @update:value="updateAnchor" />
+          <NInputNumber :value="list.scroll.anchor" :min="0" :max="100" @update:value="updateAnchor" />
         </NFormItem>
         <NFormItem :label="i18n.t('settings.autoResume')">
           <NSwitch :value="autoResume" @update:value="updateAutoResume" />
         </NFormItem>
         <NFormItem v-if="autoResume" :label="i18n.t('settings.resumeDelay')">
-          <NInputNumber :value="renderer.modes.list.scroll.resumeDelay" :min="0" :step="250" @update:value="updateResumeDelay" />
+          <NInputNumber :value="list.scroll.resumeDelay" :min="0" :step="250" @update:value="updateResumeDelay" />
         </NFormItem>
         <div class="field-hint reset-hint">{{ i18n.t('settings.resumeHint') }}</div>
         <NButton size="small" secondary data-testid="reset-renderer" @click="settings.reset('renderer')">
