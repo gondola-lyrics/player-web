@@ -13,6 +13,17 @@ const props = defineProps<{
 }>()
 const core = computed(() => props.settings.coreConfig.value)
 const list = computed(() => props.settings.rendererConfig.value.modes.list)
+const font = computed(() => {
+  const config = props.settings.rendererConfig.value
+  const overrides = config.modes.list.line.font
+  const common = config.common.line.font
+  return {
+    size: overrides?.size ?? common.size,
+    family: overrides?.family ?? common.family,
+    weight: overrides?.weight ?? common.weight,
+  }
+})
+const wordEnabled = computed(() => list.value.word.enabled ?? props.settings.rendererConfig.value.common.word.enabled)
 const autoResume = computed(() => list.value.scroll.resumeDelay !== Infinity)
 const listConfig = computed(() => props.player.renderer.config.scope('modes.list'))
 const lineConfig = computed(() => listConfig.value.scope('line'))
@@ -176,17 +187,17 @@ const updateResumeDelay = (value: number | null) => {
       <NForm label-placement="top" size="small">
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.fontSize')">
-            <NInputNumber :value="list.line.font.size" :min="1" :max="160" data-testid="font-size" @update:value="updateFontSize" />
+            <NInputNumber :value="font.size" :min="1" :max="160" data-testid="font-size" @update:value="updateFontSize" />
           </NFormItem>
           <NFormItem :label="i18n.t('settings.fontWeight')">
-            <NInputNumber :value="list.line.font.weight" :min="1" :max="1000" :step="100" @update:value="updateFontWeight" />
+            <NInputNumber :value="font.weight" :min="1" :max="1000" :step="100" @update:value="updateFontWeight" />
           </NFormItem>
         </div>
         <NFormItem :label="i18n.t('settings.fontFamily')">
-          <NInput :value="list.line.font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
+          <NInput :value="font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
         </NFormItem>
         <NFormItem :label="i18n.t('settings.wordHighlight')">
-          <NSwitch :value="list.word.enabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
+          <NSwitch :value="wordEnabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
         </NFormItem>
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.gap')">

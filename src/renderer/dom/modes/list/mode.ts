@@ -7,7 +7,9 @@ import type { ListModeConfigRequired } from './config'
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
 import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
+import { DEFAULT as LINE_DEFAULT } from '@root/renderer/dom/components/line/config'
 import { LineElement } from '@root/renderer/dom/components/line/line'
+import { DEFAULT as WORD_DEFAULT } from '@root/renderer/dom/components/word/config'
 import { RenderTimeline } from '@root/renderer/dom/timeline'
 
 import { DEFAULT } from './config'
@@ -24,6 +26,8 @@ export class ListMode implements RenderMode {
   private readonly scroll: ListScroll
   private readonly timeline = new RenderTimeline()
   private fonts: FontFaceSet
+  private lineConfig = LINE_DEFAULT
+  private wordConfig = WORD_DEFAULT
   private lines: LineElement[] = []
   private alignment?: ListModeConfigRequired['align']
   private layoutDirty = true
@@ -61,10 +65,9 @@ export class ListMode implements RenderMode {
       line.dispose()
     }
 
-    const { document, player, config, onLineClick, onLineContextMenu } = this.context
-    const list = config.current.modes.list
+    const { document, player, onLineClick, onLineContextMenu } = this.context
     this.lines = player.currentInfo.lines.map((line, index) => {
-      return new LineElement(document, line, index, list.line, list.word, {
+      return new LineElement(document, line, index, this.lineConfig, this.wordConfig, {
         click: onLineClick,
         contextMenu: onLineContextMenu,
       })
@@ -91,19 +94,66 @@ export class ListMode implements RenderMode {
     this.layoutDirty = true
   }
 
-  private syncContent(changes: RenderChanges<DomRendererConfigKeys>, list: ListModeConfigRequired) {
+  private readLineConfig() {
+    const config = this.context.config
+    return {
+      font: {
+        size: config.resolve('modes.list.line.font.size', 'common.line.font.size'),
+        family: config.resolve('modes.list.line.font.family', 'common.line.font.family'),
+        weight: config.resolve('modes.list.line.font.weight', 'common.line.font.weight'),
+      },
+      style: {
+        normal: {
+          color: config.resolve('modes.list.line.style.normal.color', 'common.line.style.normal.color'),
+          opacity: config.resolve('modes.list.line.style.normal.opacity', 'common.line.style.normal.opacity'),
+        },
+        active: {
+          color: config.resolve('modes.list.line.style.active.color', 'common.line.style.active.color'),
+          opacity: config.resolve('modes.list.line.style.active.opacity', 'common.line.style.active.opacity'),
+        },
+        played: {
+          color: config.resolve('modes.list.line.style.played.color', 'common.line.style.played.color'),
+          opacity: config.resolve('modes.list.line.style.played.opacity', 'common.line.style.played.opacity'),
+        },
+      },
+    }
+  }
+
+  private syncContent(changes: RenderChanges<DomRendererConfigKeys>) {
     this.syncFonts()
+
+    let lineChanged = false
+    let fontChanged = false
+    if (changes.lyric || changes.config.has('common.line') || changes.config.has('modes.list.line')) {
+      const next = this.readLineConfig()
+      const previous = this.lineConfig
+      fontChanged = next.font.size !== previous.font.size || next.font.family !== previous.font.family || next.font.weight !== previous.font.weight
+      lineChanged =
+        fontChanged ||
+        (['normal', 'active', 'played'] as const).some((state) => {
+          return next.style[state].color !== previous.style[state].color || next.style[state].opacity !== previous.style[state].opacity
+        })
+      if (lineChanged) {
+        this.lineConfig = next
+      }
+    }
+
+    const enabled = this.context.config.resolve('modes.list.word.enabled', 'common.word.enabled')
+    const wordChanged = enabled !== this.wordConfig.enabled
+    if (wordChanged) {
+      this.wordConfig = { enabled }
+    }
 
     if (changes.lyric) {
       this.rebuildLines()
-    } else if (changes.config.has('modes.list.line') || changes.config.has('modes.list.word')) {
+    } else if (lineChanged || wordChanged) {
       for (const line of this.lines) {
-        line.updateConfig(list.line, list.word)
+        line.updateConfig(this.lineConfig, this.wordConfig)
       }
-      this.layoutDirty ||= changes.config.has('modes.list.line.font') || changes.config.has('modes.list.word.enabled')
+      this.layoutDirty ||= fontChanged || wordChanged
     }
 
-    if (changes.lyric || changes.config.has('modes.list.word.enabled')) {
+    if (changes.lyric || wordChanged) {
       this.timeline.replace(this.lines.flatMap((line) => line.timeCues))
     }
   }
@@ -131,7 +181,7 @@ export class ListMode implements RenderMode {
     }
   }
 
-  private updateLayout(changes: RenderChanges<DomRendererConfigKeys>, list: ListModeConfigRequired, follow: boolean) {
+  private updateLayout(changes: RenderChanges<DomRendererConfigKeys>, list: typeof DEFAULT, follow: boolean) {
     const height = this.element.clientHeight
     const spacingChanged = changes.config.has('modes.list.gap') || changes.config.has('modes.list.align')
     const layoutChanged = this.layoutDirty || changes.size || spacingChanged
@@ -162,11 +212,10 @@ export class ListMode implements RenderMode {
     }
 
     const { currentInfo, activeIndexes, currentIndexes } = this.context.player
-    const config = this.context.config.current
-    const list = config.modes.list
+    const list = this.context.config.current.modes.list
     const timed = currentInfo.timing === TimingLevel.LINE || currentInfo.timing === TimingLevel.WORD
     const follow = list.scroll.follow && timed
-    this.syncContent(changes, list)
+    this.syncContent(changes)
 
     if (changes.seek) {
       this.scroll.reset()

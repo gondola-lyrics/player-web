@@ -1,5 +1,5 @@
 import type { RendererSource } from '@root/renderer/common/types'
-import type { DomRendererConfig, DomRendererConfigKeys, DomRendererConfigManager } from './config'
+import type { DomRendererConfig, DomRendererConfigKeys, DomRendererConfigManager, DomRendererConfigRequired } from './config'
 import type { RenderContext } from './context'
 import type { DomRendererEventMap } from './events'
 import type { RenderMode } from './modes/types'
@@ -32,7 +32,7 @@ export class DomRenderer {
     private readonly player: RendererSource,
     config?: DomRendererConfig,
   ) {
-    this.config = new ConfigManager(DEFAULT, config)
+    this.config = new ConfigManager<DomRendererConfigRequired, DomRendererConfig>(DEFAULT, config)
     this.scheduler = new UpdateScheduler(this.flush)
     this.container = new Container(this.handleResize)
 

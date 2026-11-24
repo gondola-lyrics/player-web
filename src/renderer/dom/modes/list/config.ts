@@ -2,9 +2,6 @@ import type { DeepRequired } from '@root/utils'
 import type { LineConfig } from '@root/renderer/dom/components/line/config'
 import type { WordConfig } from '@root/renderer/dom/components/word/config'
 
-import { DEFAULT as LINE_DEFAULT } from '@root/renderer/dom/components/line/config'
-import { DEFAULT as WORD_DEFAULT } from '@root/renderer/dom/components/word/config'
-
 export interface ListScrollAnimationConfig {
   /**
    * Switches between animated row movement and immediate positioning.
@@ -79,9 +76,9 @@ export interface ListModeConfig {
 
 export type ListModeConfigRequired = DeepRequired<ListModeConfig>
 
-export const DEFAULT: ListModeConfigRequired = Object.freeze({
-  line: LINE_DEFAULT,
-  word: WORD_DEFAULT,
+export const DEFAULT: Omit<ListModeConfigRequired, 'line' | 'word'> & { line: LineConfig; word: WordConfig } = Object.freeze({
+  line: Object.freeze({}),
+  word: Object.freeze({}),
   gap: 24,
   align: 'left',
   scroll: Object.freeze({

@@ -7,7 +7,7 @@ import { onScopeDispose, ref, shallowRef } from 'vue'
 import { readRecord, readStorage, writeStorage } from '../lib/storage'
 
 export const RENDERER_PRESET: DomRendererConfig = {
-  modes: { list: { line: { font: { size: 38, weight: 500 } }, gap: 24 } },
+  common: { line: { font: { size: 38, weight: 500 } } },
 }
 
 const SETTINGS_KEY = 'gondola-player-settings-v1'
@@ -77,7 +77,7 @@ const pickOverrides = (current: object, defaults: object): Record<string, unknow
 }
 
 /**
- * Publishes resolved configuration snapshots and persists ordinary nested patches without mutating them.
+ * Persists configuration overrides separately from inherited appearance so reloads preserve mode preferences.
  */
 export const useSettings = (player: ReturnType<typeof usePlayer>) => {
   const { core, renderer } = player
