@@ -1,42 +1,20 @@
 import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
+import type { RenderChanges } from '@root/renderer/common/types'
+import type { DomRendererConfigKeys, DomRendererConfigManager, DomRendererMode } from '@root/renderer/dom/config'
 import type { TimeCue } from '@root/renderer/dom/timeline'
-import type { WordConfigRequired } from '@root/renderer/dom/components/word/config'
-import type { LineConfigRequired } from './config'
 import type { LineInteractions } from './content'
 
 import { EnrichedLineType } from '@gondola-lyrics/model/enriched'
 
-import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
+import { buildClassName } from '@root/renderer/dom/css'
 
-import { DEFAULT } from './config'
 import { LineContentElement } from './content'
-
-const FONT_SIZE = buildLineVariableKey('line-normal-base-font-size')
-const FONT_FAMILY = buildLineVariableKey('line-normal-base-font-family')
-const FONT_WEIGHT = buildLineVariableKey('line-normal-base-font-weight')
-const STYLE_STATES = ['normal', 'active', 'played'] as const
-const STYLE_VARIABLES = {
-  normal: {
-    color: buildLineVariableKey('line-normal-main-syllable-color'),
-    opacity: buildLineVariableKey('line-normal-main-syllable-opacity'),
-  },
-  active: {
-    color: buildLineVariableKey('line-normal-main-syllable-active-color'),
-    opacity: buildLineVariableKey('line-normal-main-syllable-active-opacity'),
-  },
-  played: {
-    color: buildLineVariableKey('line-normal-main-syllable-played-color'),
-    opacity: buildLineVariableKey('line-normal-main-syllable-played-opacity'),
-  },
-}
 
 export class LineElement {
   readonly element: HTMLDivElement
 
   private readonly main: LineContentElement
   private readonly backgrounds: LineContentElement[] = []
-  private config?: LineConfigRequired
-  private wordConfig: WordConfigRequired
   private active?: boolean
   private played?: boolean
   private current?: boolean
@@ -45,84 +23,41 @@ export class LineElement {
     document: Document,
     private readonly line: EnrichedLine,
     index: number,
-    config: LineConfigRequired,
-    word: WordConfigRequired,
+    config: DomRendererConfigManager,
+    mode: DomRendererMode,
     interactions: LineInteractions,
   ) {
-    this.wordConfig = word
     this.element = document.createElement('div')
     this.element.className = buildClassName('wrapper')
     this.element.dataset.role = 'line'
     this.element.dataset.lineIndex = String(index)
     this.element.dataset.type = line.type === EnrichedLineType.INSTRUMENTAL ? 'instrumental' : 'normal'
 
-    this.main = new LineContentElement(document, line, index, word, interactions)
+    this.main = new LineContentElement(document, line, index, config, mode, interactions)
     this.element.appendChild(this.main.element)
 
     if (line.type !== EnrichedLineType.INSTRUMENTAL) {
       for (const background of line.backgrounds) {
-        const content = new LineContentElement(document, background, index, word, interactions, true)
+        const content = new LineContentElement(document, background, index, config, mode, interactions, true)
         this.backgrounds.push(content)
         this.element.appendChild(content.element)
-      }
-    }
-
-    this.updateConfig(config, word)
-  }
-
-  private updateFont(font: LineConfigRequired['font'], previous?: LineConfigRequired['font']) {
-    const style = this.element.style
-    if (font.size !== previous?.size) {
-      const size = Number.isFinite(font.size) && font.size > 0 ? font.size : DEFAULT.font.size
-      style.setProperty(FONT_SIZE, `${size}px`)
-    }
-    if (font.family !== previous?.family) {
-      style.setProperty(FONT_FAMILY, font.family || 'inherit')
-    }
-    if (font.weight !== previous?.weight) {
-      const weight = Number.isFinite(font.weight) ? font.weight : DEFAULT.font.weight
-      style.setProperty(FONT_WEIGHT, String(weight))
-    }
-  }
-
-  private updateStyle(styles: LineConfigRequired['style'], previous?: LineConfigRequired['style']) {
-    const style = this.element.style
-    for (const state of STYLE_STATES) {
-      const current = styles[state]
-      const before = previous?.[state]
-      if (current === before) {
-        continue
-      }
-
-      const variables = STYLE_VARIABLES[state]
-      if (current.color !== before?.color) {
-        style.setProperty(variables.color, current.color)
-      }
-      if (current.opacity !== before?.opacity) {
-        style.setProperty(variables.opacity, String(current.opacity))
       }
     }
   }
 
   /**
-   * Writes changed appearance fields and updates word content only when its configuration changes.
+   * Reports whether a content switch requires layout and time callbacks to be refreshed.
+   *
+   * Omitting changes applies configuration while preserving matching text representations.
    */
-  updateConfig(config: LineConfigRequired, word: WordConfigRequired) {
-    if (config.font !== this.config?.font) {
-      this.updateFont(config.font, this.config?.font)
+  updateConfig(changes?: RenderChanges<DomRendererConfigKeys>): boolean {
+    let contentChanged = this.main.updateConfig(changes)
+    for (const background of this.backgrounds) {
+      const changed = background.updateConfig(changes)
+      contentChanged ||= changed
     }
-    if (config.style !== this.config?.style) {
-      this.updateStyle(config.style, this.config?.style)
-    }
-    this.config = config
 
-    if (word !== this.wordConfig) {
-      this.main.updateConfig(word)
-      for (const background of this.backgrounds) {
-        background.updateConfig(word)
-      }
-      this.wordConfig = word
-    }
+    return contentChanged
   }
 
   /**

@@ -1,7 +1,8 @@
 import type { EnrichedLine, EnrichedLineBackground } from '@gondola-lyrics/model/enriched'
+import type { RenderChanges } from '@root/renderer/common/types'
+import type { DomRendererConfigKeys, DomRendererConfigManager, DomRendererMode } from '@root/renderer/dom/config'
 import type { DomRendererEventMap } from '@root/renderer/dom/events'
 import type { TimeCue } from '@root/renderer/dom/timeline'
-import type { WordConfigRequired } from '@root/renderer/dom/components/word/config'
 
 import { isTimeInTimeRange } from '@gondola-lyrics/model/common'
 import { EnrichedLineType, getEnrichedLineContentText, hasEnrichedLineWords } from '@gondola-lyrics/model/enriched'
@@ -30,7 +31,8 @@ export class LineContentElement {
     document: Document,
     private readonly line: EnrichedLine | EnrichedLineBackground,
     private readonly index: number,
-    config: WordConfigRequired,
+    private readonly config: DomRendererConfigManager,
+    private readonly mode: DomRendererMode,
     private readonly interactions: LineInteractions,
     private readonly background = false,
   ) {
@@ -57,7 +59,7 @@ export class LineContentElement {
       this.element.appendChild(this.text)
     }
 
-    this.updateConfig(config)
+    this.updateConfig()
     if (line.time) {
       this.cues.push({
         range: line.time,
@@ -73,14 +75,14 @@ export class LineContentElement {
     this.element.addEventListener('contextmenu', this.handleContextMenu)
   }
 
-  private updateWords(enabled: boolean) {
+  private updateWords(enabled: boolean): boolean {
     if (!this.text) {
-      return
+      return false
     }
 
     const timed = enabled && hasEnrichedLineWords(this.line)
     if (this.words !== undefined && timed === Boolean(this.words)) {
-      return
+      return false
     }
 
     this.words?.dispose()
@@ -91,6 +93,8 @@ export class LineContentElement {
       this.words = null
       this.text.textContent = getEnrichedLineContentText(this.line.content)
     }
+
+    return true
   }
 
   private syncState() {
@@ -136,10 +140,15 @@ export class LineContentElement {
   }
 
   /**
-   * Keeps the text host stable when switching between plain text and timed words.
+   * Reports whether the effective word setting requires different text nodes and time callbacks.
    */
-  updateConfig(config: WordConfigRequired) {
-    this.updateWords(config.enabled)
+  updateConfig(changes?: RenderChanges<DomRendererConfigKeys>): boolean {
+    if (changes && !changes.config.has(`modes.${this.mode}.word.enabled`) && !changes.config.has('common.word.enabled')) {
+      return false
+    }
+
+    const enabled = this.config.resolve(`modes.${this.mode}.word.enabled`, 'common.word.enabled')
+    return this.updateWords(enabled)
   }
 
   /**

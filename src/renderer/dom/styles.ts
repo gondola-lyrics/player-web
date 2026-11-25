@@ -1,4 +1,4 @@
-import { CSS_NAMESPACE } from './css'
+import { CSS_NAMESPACE, buildClassName } from './css'
 
 import line from './components/line/style.scss?inline'
 import list from './modes/list/style.scss?inline'
@@ -52,5 +52,61 @@ export const createStyles = (root: StyleRoot): (() => void) => {
       root.adoptedStyleSheets = root.adoptedStyleSheets.filter((sheet) => sheet !== entry.sheet)
       roots.delete(root)
     }
+  }
+}
+
+export class RuntimeStyles {
+  private readonly element: HTMLStyleElement
+  private readonly declarations: CSSStyleDeclaration
+  private readonly selector: string
+
+  constructor(host: HTMLElement) {
+    const document = host.ownerDocument
+    this.element = document.createElement('style')
+    this.element.dataset.role = 'renderer-style'
+    this.declarations = document.createElement('div').style
+    this.selector = `.${buildClassName('root')}[data-role="root"][data-instance-id="${host.dataset.instanceId}"]`
+    host.appendChild(this.element)
+  }
+
+  /**
+   * Replaces the complete variable set, including removal of omitted declarations.
+   *
+   * Returns actual declaration changes so each mode can decide whether to measure again.
+   */
+  update(variables: Readonly<Record<string, string>>): ReadonlySet<string> {
+    const changed = new Set<string>()
+    for (const key of Array.from(this.declarations)) {
+      if (!Object.hasOwn(variables, key)) {
+        this.declarations.removeProperty(key)
+        changed.add(key)
+      }
+    }
+
+    for (const [key, value] of Object.entries(variables)) {
+      const previous = this.declarations.getPropertyValue(key)
+      if (previous === value) {
+        continue
+      }
+
+      this.declarations.setProperty(key, value)
+      if (this.declarations.getPropertyValue(key) !== previous) {
+        changed.add(key)
+      }
+    }
+
+    if (changed.size > 0) {
+      const css = this.declarations.cssText
+      this.element.textContent = css ? `@layer ${CSS_NAMESPACE} {\n${this.selector} {\n${css}\n}\n}` : ''
+    }
+
+    return changed
+  }
+
+  /**
+   * Removes only this instance's runtime rules; shared structural styles are independently owned.
+   */
+  dispose() {
+    this.element.remove()
   }
 }

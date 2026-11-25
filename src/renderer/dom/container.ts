@@ -1,5 +1,5 @@
 import { buildClassName } from './css'
-import { createStyles } from './styles'
+import { RuntimeStyles, createStyles } from './styles'
 
 const collectAncestors = (element: HTMLElement): Node[] => {
   const ancestors: Node[] = []
@@ -30,6 +30,7 @@ const getStyleRoot = (element: HTMLElement): Document | ShadowRoot | null => {
 export class Container {
   readonly element: HTMLDivElement
 
+  private readonly styles: RuntimeStyles
   private readonly observer: ResizeObserver
   private readonly mountObserver: MutationObserver
   private ancestors: Node[] = []
@@ -46,6 +47,7 @@ export class Container {
     this.element.dataset.role = 'root'
     const identity = crypto.getRandomValues(new Uint32Array(2))
     this.element.dataset.instanceId = Array.from(identity, (part) => part.toString(16).padStart(8, '0')).join('')
+    this.styles = new RuntimeStyles(this.element)
 
     this.observer = new ResizeObserver(() => {
       this.sync()
@@ -94,11 +96,21 @@ export class Container {
   }
 
   /**
+   * Replaces the active mode's complete variable set without scheduling another update.
+   *
+   * Returns added, removed or changed declarations for the mode's layout decisions.
+   */
+  updateStyle(variables: Readonly<Record<string, string>>): ReadonlySet<string> {
+    return this.styles.update(variables)
+  }
+
+  /**
    * Stops observing and detaches the element from its host.
    */
   dispose() {
     this.observer.disconnect()
     this.mountObserver.disconnect()
+    this.styles.dispose()
     this.releaseStyles?.()
     this.releaseStyles = null
     this.ancestors = []
