@@ -1,6 +1,5 @@
 import type { DeepRequired } from '@root/utils'
-import type { LineConfig } from '@root/renderer/dom/components/line/config'
-import type { WordConfig } from '@root/renderer/dom/components/word/config'
+import type { ContentConfig } from '@root/renderer/dom/components/line/config'
 
 export interface ListScrollAnimationConfig {
   /**
@@ -38,18 +37,22 @@ export interface ListScrollAnimationConfig {
 }
 
 export interface ListModeConfig {
-  line?: LineConfig
-  word?: WordConfig
   /**
-   * Space between original lyric rows in pixels.
-   *
-   * @default 24
+   * Omitted fields inherit from the renderer's common content configuration.
    */
-  gap?: number
-  /**
-   * @default 'left'
-   */
-  align?: 'left' | 'center' | 'right'
+  content?: ContentConfig
+  layout?: {
+    /**
+     * Space between original lyric rows in pixels.
+     *
+     * @default 24
+     */
+    gap?: number
+    /**
+     * @default 'left'
+     */
+    align?: 'left' | 'center' | 'right'
+  }
   scroll?: {
     /**
      * Automatically follows display-active rows when the lyric has line timing.
@@ -63,28 +66,33 @@ export interface ListModeConfig {
      * @default 50
      */
     anchor?: number
-    /**
-     * Milliseconds without manual scrolling before following resumes.
-     * Infinity keeps browsing until an explicit seek or lyric replacement.
-     *
-     * @default 3000
-     */
-    resumeDelay?: number
+    resume?: {
+      /**
+       * Automatically returns to the playing line after manual browsing.
+       *
+       * @default true
+       */
+      enabled?: boolean
+      /**
+       * Milliseconds of inactivity before following resumes.
+       *
+       * @default 3000
+       */
+      delay?: number
+    }
     animation?: ListScrollAnimationConfig
   }
 }
 
-export type ListModeConfigRequired = DeepRequired<ListModeConfig>
+export type ListModeConfigRequired = DeepRequired<Omit<ListModeConfig, 'content'>> & { content: ContentConfig }
 
-export const DEFAULT: Omit<ListModeConfigRequired, 'line' | 'word'> & { line: LineConfig; word: WordConfig } = Object.freeze({
-  line: Object.freeze({}),
-  word: Object.freeze({}),
-  gap: 24,
-  align: 'left',
+export const DEFAULT: ListModeConfigRequired = Object.freeze({
+  content: Object.freeze({}),
+  layout: Object.freeze({ gap: 24, align: 'left' }),
   scroll: Object.freeze({
     follow: true,
     anchor: 50,
-    resumeDelay: 3000,
+    resume: Object.freeze({ enabled: true, delay: 3000 }),
     animation: Object.freeze({
       enabled: true,
       mode: 'uniform',

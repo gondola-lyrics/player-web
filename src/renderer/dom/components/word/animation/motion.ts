@@ -38,6 +38,7 @@ export class WordMotion {
     private readonly range: TimeRange,
     block: TimeRange | undefined,
     private readonly background: boolean,
+    private readonly floatEnabled: boolean,
   ) {
     this.duration = Math.max(1000, getTimeRangeDuration(range) ?? 0)
     this.stagger = chars.length ? this.duration / 2.5 / chars.length : 0
@@ -55,7 +56,8 @@ export class WordMotion {
     if (Number.isFinite(this.blockEnd)) {
       const atExit = this.blockEnd - range.start
       // The word returns at normal speed while any unfinished character accents run to completion at four times speed.
-      const release = Math.max(Math.min(this.duration, atExit), (this.emphasisEnd - atExit) / RELEASE_RATE)
+      const floatRelease = this.floatEnabled ? Math.min(this.duration, atExit) : 0
+      const release = Math.max(floatRelease, (this.emphasisEnd - atExit) / RELEASE_RATE)
       this.addCue(this.blockEnd, this.blockEnd + release)
     }
   }
@@ -82,7 +84,9 @@ export class WordMotion {
     const release = Math.max(0, lyricTime - this.blockEnd)
     const during = Math.min(local, this.blockEnd - this.range.start)
 
-    this.updateFloat(lyricTime < this.start ? 0 : Math.min(this.duration, during) - release)
+    if (this.floatEnabled) {
+      this.updateFloat(lyricTime < this.start ? 0 : Math.min(this.duration, during) - release)
+    }
     if (this.chars.length) {
       this.updateEmphasis(lyricTime < this.start ? -FLOAT_LEAD : during + release * RELEASE_RATE)
     }

@@ -28,18 +28,18 @@ export const LAYOUT_STYLE_KEYS = [FONT_SIZE, FONT_FAMILY, FONT_WEIGHT] as const
  * Resolves sparse list overrides into the complete inherited row style before measurement.
  */
 export const buildListStyle = (config: DomRendererConfigManager): Record<string, string> => {
-  const size = config.resolve('modes.list.line.font.size', 'common.line.font.size')
-  const family = config.resolve('modes.list.line.font.family', 'common.line.font.family')
-  const weight = config.resolve('modes.list.line.font.weight', 'common.line.font.weight')
+  const size = config.resolve('modes.list.content.style.font.size', 'common.content.style.font.size')
+  const family = config.resolve('modes.list.content.style.font.family', 'common.content.style.font.family')
+  const weight = config.resolve('modes.list.content.style.font.weight', 'common.content.style.font.weight')
   const variables: Record<string, string> = {
-    [FONT_SIZE]: `${Number.isFinite(size) && size > 0 ? size : DEFAULT.font.size}px`,
+    [FONT_SIZE]: `${Number.isFinite(size) && size > 0 ? size : DEFAULT.style.font.size}px`,
     [FONT_FAMILY]: family || 'inherit',
-    [FONT_WEIGHT]: String(Number.isFinite(weight) ? weight : DEFAULT.font.weight),
+    [FONT_WEIGHT]: String(Number.isFinite(weight) ? weight : DEFAULT.style.font.weight),
   }
 
   for (const state of STYLE_STATES) {
-    const color = config.resolve(`modes.list.line.style.${state}.color`, `common.line.style.${state}.color`)
-    const opacity = config.resolve(`modes.list.line.style.${state}.opacity`, `common.line.style.${state}.opacity`)
+    const color = config.resolve(`modes.list.content.style.states.${state}.color`, `common.content.style.states.${state}.color`)
+    const opacity = config.resolve(`modes.list.content.style.states.${state}.opacity`, `common.content.style.states.${state}.opacity`)
     variables[STYLE_VARIABLES[state].color] = color
     variables[STYLE_VARIABLES[state].opacity] = String(opacity)
   }

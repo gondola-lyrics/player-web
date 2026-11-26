@@ -1,5 +1,6 @@
 import type { TimeRange } from '@gondola-lyrics/model/common'
 import type { EnrichedWord } from '@gondola-lyrics/model/enriched'
+import type { WordEffects } from './config'
 
 import { buildClassName, buildRootVariableKey } from '@root/renderer/dom/css'
 
@@ -14,7 +15,7 @@ export class WordElement {
   readonly word: HTMLSpanElement
   readonly motion?: WordMotion
 
-  constructor(document: Document, source: EnrichedWord, block: TimeRange | undefined, background: boolean) {
+  constructor(document: Document, source: EnrichedWord, block: TimeRange | undefined, background: boolean, effects: WordEffects) {
     this.element = document.createElement('span')
     this.element.className = buildClassName('cell')
     this.element.dataset.role = 'line-normal-text-word'
@@ -29,7 +30,7 @@ export class WordElement {
     this.word.className = buildClassName('word')
 
     const chars: HTMLSpanElement[] = []
-    if (source.time && source.emphasis?.value) {
+    if (effects.emphasis && source.time && source.emphasis?.value) {
       const segments = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(source.text)
       for (const { segment } of segments) {
         const char = document.createElement('span')
@@ -49,8 +50,8 @@ export class WordElement {
     this.wipe.appendChild(this.word)
     this.element.appendChild(this.wipe)
 
-    if (source.time) {
-      this.motion = new WordMotion(this.word, chars, source.time, block, background)
+    if (source.time && (effects.float || chars.length > 0)) {
+      this.motion = new WordMotion(this.word, chars, source.time, block, background, effects.float)
     }
   }
 

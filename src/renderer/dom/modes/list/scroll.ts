@@ -10,7 +10,7 @@ export class ListScroll {
   private touchY: number | undefined
   private timer: ReturnType<typeof setTimeout> | null = null
   private resumeAt = 0
-  private resumeDelay = DEFAULT.scroll.resumeDelay
+  private resume = DEFAULT.scroll.resume
   private canFollow = false
   private lineCount = 0
   private anchorIndex = 0
@@ -137,11 +137,11 @@ export class ListScroll {
 
   private scheduleResume() {
     this.clearTimer()
-    if (!this.canFollow || !this.browsing || this.pointerId !== null || this.touches.size > 0 || this.resumeDelay === Infinity) {
+    if (!this.canFollow || !this.browsing || this.pointerId !== null || this.touches.size > 0 || !this.resume.enabled) {
       return
     }
 
-    const delay = Number.isFinite(this.resumeDelay) ? Math.max(0, this.resumeDelay) : DEFAULT.scroll.resumeDelay
+    const delay = Number.isFinite(this.resume.delay) ? Math.max(0, this.resume.delay) : DEFAULT.scroll.resume.delay
     this.resumeAt = performance.now() + delay
     this.timer = setTimeout(this.handleResume, Math.min(delay, MAX_TIMEOUT))
   }
@@ -165,17 +165,17 @@ export class ListScroll {
   /**
    * Tracks the playback anchor while leaving a manual selection in place until it expires.
    */
-  update(activeIndex: number | undefined, lineCount: number, resumeDelay: number) {
+  update(activeIndex: number | undefined, lineCount: number, resume: typeof DEFAULT.scroll.resume) {
     this.syncDocument()
     const canFollow = activeIndex !== undefined
-    const resumeChanged = canFollow !== this.canFollow || resumeDelay !== this.resumeDelay
+    const resumeChanged = canFollow !== this.canFollow || resume !== this.resume
     if (canFollow && !this.canFollow) {
       this.reset()
     }
 
     this.canFollow = canFollow
     this.lineCount = lineCount
-    this.resumeDelay = resumeDelay
+    this.resume = resume
     this.anchorIndex = this.clamp(this.browsing ? this.anchorIndex : (activeIndex ?? this.anchorIndex))
     if (this.browsing && resumeChanged) {
       this.scheduleResume()

@@ -13,21 +13,28 @@ const props = defineProps<{
 }>()
 const core = computed(() => props.settings.coreConfig.value)
 const list = computed(() => props.settings.rendererConfig.value.modes.list)
+const commonContent = computed(() => props.settings.rendererConfig.value.common.content)
+const unit = computed(() => list.value.content.unit ?? commonContent.value.unit)
 const font = computed(() => {
-  const config = props.settings.rendererConfig.value
-  const overrides = config.modes.list.line.font
-  const common = config.common.line.font
+  const overrides = list.value.content.style?.font
+  const common = commonContent.value.style.font
   return {
     size: overrides?.size ?? common.size,
     family: overrides?.family ?? common.family,
     weight: overrides?.weight ?? common.weight,
   }
 })
-const wordEnabled = computed(() => list.value.word.enabled ?? props.settings.rendererConfig.value.common.word.enabled)
-const autoResume = computed(() => list.value.scroll.resumeDelay !== Infinity)
+const wordEffects = ['mask', 'float', 'emphasis'] as const
 const listConfig = computed(() => props.player.renderer.config.scope('modes.list'))
-const lineConfig = computed(() => listConfig.value.scope('line'))
+const contentConfig = computed(() => listConfig.value.scope('content'))
 const scrollConfig = computed(() => listConfig.value.scope('scroll'))
+
+const units = computed(() => {
+  return [
+    { value: 'line', label: props.i18n.t('settings.unitLine') },
+    { value: 'word', label: props.i18n.t('settings.unitWord') },
+  ]
+})
 
 const drivers = computed(() => {
   return [
@@ -92,33 +99,39 @@ const updateTemporaryOffset = (value: number | null) => {
 
 const updateFontSize = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    lineConfig.value.merge('font.size', value)
+    contentConfig.value.merge('style.font.size', value)
   }
 }
 
 const updateFontWeight = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    lineConfig.value.merge('font.weight', value)
+    contentConfig.value.merge('style.font.weight', value)
   }
 }
 
 const updateFontFamily = (value: string) => {
-  lineConfig.value.merge('font.family', value)
+  contentConfig.value.merge('style.font.family', value)
 }
 
-const updateWordHighlight = (value: boolean) => {
-  listConfig.value.merge('word.enabled', value)
+const updateUnit = (value: unknown) => {
+  if (value === 'line' || value === 'word') {
+    contentConfig.value.merge('unit', value)
+  }
+}
+
+const updateWordEffect = (effect: (typeof wordEffects)[number], enabled: boolean) => {
+  contentConfig.value.merge(`word.${effect}.enabled`, enabled)
 }
 
 const updateGap = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    listConfig.value.merge('gap', value)
+    listConfig.value.merge('layout.gap', value)
   }
 }
 
 const updateAlignment = (value: unknown) => {
   if (value === 'left' || value === 'center' || value === 'right') {
-    listConfig.value.merge('align', value)
+    listConfig.value.merge('layout.align', value)
   }
 }
 
@@ -133,14 +146,12 @@ const updateAnchor = (value: number | null) => {
 }
 
 const updateAutoResume = (value: boolean) => {
-  const resumeDelay = value ? 3000 : Infinity
-
-  scrollConfig.value.merge('resumeDelay', resumeDelay)
+  scrollConfig.value.merge('resume.enabled', value)
 }
 
 const updateResumeDelay = (value: number | null) => {
   if (isFiniteNumber(value)) {
-    scrollConfig.value.merge('resumeDelay', value)
+    scrollConfig.value.merge('resume.delay', value)
   }
 }
 </script>
@@ -196,15 +207,24 @@ const updateResumeDelay = (value: number | null) => {
         <NFormItem :label="i18n.t('settings.fontFamily')">
           <NInput :value="font.family" :placeholder="i18n.t('settings.fontFamilyHint')" @update:value="updateFontFamily" />
         </NFormItem>
-        <NFormItem :label="i18n.t('settings.wordHighlight')">
-          <NSwitch :value="wordEnabled" :aria-label="i18n.t('settings.wordHighlight')" @update:value="updateWordHighlight" />
+        <NFormItem :label="i18n.t('settings.unit')">
+          <NSelect :value="unit" :options="units" :aria-label="i18n.t('settings.unit')" @update:value="updateUnit" />
         </NFormItem>
+        <template v-if="unit === 'word'">
+          <NFormItem v-for="effect in wordEffects" :key="effect" :label="i18n.t(`settings.word.${effect}`)">
+            <NSwitch
+              :value="list.content.word?.[effect]?.enabled ?? commonContent.word[effect].enabled"
+              :aria-label="i18n.t(`settings.word.${effect}`)"
+              @update:value="updateWordEffect(effect, $event)"
+            />
+          </NFormItem>
+        </template>
         <div class="field-pair">
           <NFormItem :label="i18n.t('settings.gap')">
-            <NInputNumber :value="list.gap" :min="0" :max="300" @update:value="updateGap" />
+            <NInputNumber :value="list.layout.gap" :min="0" :max="300" @update:value="updateGap" />
           </NFormItem>
           <NFormItem :label="i18n.t('settings.align')">
-            <NSelect :value="list.align" :options="aligns" @update:value="updateAlignment" />
+            <NSelect :value="list.layout.align" :options="aligns" @update:value="updateAlignment" />
           </NFormItem>
         </div>
         <NFormItem :label="i18n.t('settings.follow')">
@@ -214,10 +234,10 @@ const updateResumeDelay = (value: number | null) => {
           <NInputNumber :value="list.scroll.anchor" :min="0" :max="100" @update:value="updateAnchor" />
         </NFormItem>
         <NFormItem :label="i18n.t('settings.autoResume')">
-          <NSwitch :value="autoResume" @update:value="updateAutoResume" />
+          <NSwitch :value="list.scroll.resume.enabled" @update:value="updateAutoResume" />
         </NFormItem>
-        <NFormItem v-if="autoResume" :label="i18n.t('settings.resumeDelay')">
-          <NInputNumber :value="list.scroll.resumeDelay" :min="0" :step="250" @update:value="updateResumeDelay" />
+        <NFormItem v-if="list.scroll.resume.enabled" :label="i18n.t('settings.resumeDelay')">
+          <NInputNumber :value="list.scroll.resume.delay" :min="0" :step="250" @update:value="updateResumeDelay" />
         </NFormItem>
         <div class="field-hint reset-hint">{{ i18n.t('settings.resumeHint') }}</div>
         <NButton size="small" secondary data-testid="reset-renderer" @click="settings.reset('renderer')">

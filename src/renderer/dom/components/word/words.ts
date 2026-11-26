@@ -2,6 +2,7 @@ import type { TimeRange } from '@gondola-lyrics/model/common'
 import type { EnrichedWord } from '@gondola-lyrics/model/enriched'
 import type { TimeCue } from '@root/renderer/dom/timeline'
 import type { MaskWord } from './animation/mask'
+import type { WordEffects } from './config'
 
 import { EnrichedWordType } from '@gondola-lyrics/model/enriched'
 
@@ -11,9 +12,15 @@ import { WordElement } from './word'
 export class TimedWords {
   readonly cues: TimeCue[] = []
   private readonly words: WordElement[] = []
-  private readonly mask: MaskAnimationHost
+  private readonly mask?: MaskAnimationHost
 
-  constructor(text: HTMLElement, words: readonly EnrichedWord[], range: TimeRange | undefined, background: boolean) {
+  constructor(
+    text: HTMLElement,
+    words: readonly EnrichedWord[],
+    range: TimeRange | undefined,
+    background: boolean,
+    readonly effects: WordEffects,
+  ) {
     const document = text.ownerDocument
     const fragment = document.createDocumentFragment()
     const masked: MaskWord[] = []
@@ -24,9 +31,9 @@ export class TimedWords {
         continue
       }
 
-      const element = new WordElement(document, word, range, background)
+      const element = new WordElement(document, word, range, background, effects)
       this.words.push(element)
-      if (word.time) {
+      if (effects.mask && word.time) {
         masked.push({ wipe: element.wipe, word: element.word, range: word.time })
       }
 
@@ -35,15 +42,17 @@ export class TimedWords {
     }
 
     text.replaceChildren(fragment)
-    this.mask = new MaskAnimationHost(masked, range)
-    this.cues.push(...this.mask.cues)
+    if (masked.length > 0) {
+      this.mask = new MaskAnimationHost(masked, range)
+      this.cues.push(...this.mask.cues)
+    }
   }
 
   /**
    * Recomputes feather distances after the font or available width changes.
    */
   measure() {
-    this.mask.measure()
+    this.mask?.measure()
   }
 
   /**

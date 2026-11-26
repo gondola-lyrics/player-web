@@ -1,14 +1,31 @@
 import type { DeepRequired } from '@root/utils'
 
-export interface WordConfig {
+interface WordEffectConfig {
   /**
-   * Highlights sung words using their individual time ranges.
-   *
    * @default true
    */
   enabled?: boolean
 }
 
-export type WordConfigRequired = DeepRequired<WordConfig>
+export interface WordConfig {
+  /**
+   * Sweeps the highlight across each timed source segment.
+   */
+  mask?: WordEffectConfig
+  /**
+   * Lifts the whole word during its time range.
+   */
+  float?: WordEffectConfig
+  /**
+   * Accents the characters of words marked for vocal emphasis.
+   */
+  emphasis?: WordEffectConfig
+}
 
-export const DEFAULT: WordConfigRequired = Object.freeze({ enabled: true })
+export type WordEffects = Readonly<Record<keyof WordConfig, boolean>>
+
+export const DEFAULT: DeepRequired<WordConfig> = Object.freeze({
+  mask: Object.freeze({ enabled: true }),
+  float: Object.freeze({ enabled: true }),
+  emphasis: Object.freeze({ enabled: true }),
+})

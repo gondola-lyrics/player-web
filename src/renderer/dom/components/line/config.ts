@@ -1,4 +1,9 @@
 import type { DeepRequired } from '@root/utils'
+import type { WordConfig } from '../word/config'
+
+import { DEFAULT as WORD_DEFAULT } from '../word/config'
+
+export type ContentUnit = 'line' | 'word'
 
 export interface LineStateStyle {
   /**
@@ -13,7 +18,7 @@ export interface LineStateStyle {
   opacity?: number
 }
 
-export interface LineConfig {
+export interface ContentStyle {
   font?: {
     /**
      * Main text size in pixels; backgrounds scale relative to it.
@@ -34,20 +39,36 @@ export interface LineConfig {
    * Main and background sources select their own state from these shared styles.
    * Omitted fields retain that state's value; normal does not override the other states.
    */
-  style?: {
+  states?: {
     normal?: LineStateStyle
     active?: LineStateStyle
     played?: LineStateStyle
   }
 }
 
-export type LineConfigRequired = DeepRequired<LineConfig>
+export interface ContentConfig {
+  /**
+   * Word display follows the source segments, including syllables, and falls back to whole-line text per vocal.
+   *
+   * @default 'word'
+   */
+  unit?: ContentUnit
+  style?: ContentStyle
+  /**
+   * Effect preferences are retained when switching to whole-line display.
+   */
+  word?: WordConfig
+}
 
-export const DEFAULT: LineConfigRequired = Object.freeze({
-  font: Object.freeze({ size: 30, family: '', weight: 500 }),
+export const DEFAULT: DeepRequired<ContentConfig> = Object.freeze({
+  unit: 'word',
   style: Object.freeze({
-    normal: Object.freeze({ color: 'currentColor', opacity: 0.6 }),
-    active: Object.freeze({ color: 'currentColor', opacity: 1 }),
-    played: Object.freeze({ color: 'currentColor', opacity: 0.4 }),
+    font: Object.freeze({ size: 30, family: '', weight: 500 }),
+    states: Object.freeze({
+      normal: Object.freeze({ color: 'currentColor', opacity: 0.6 }),
+      active: Object.freeze({ color: 'currentColor', opacity: 1 }),
+      played: Object.freeze({ color: 'currentColor', opacity: 0.4 }),
+    }),
   }),
+  word: WORD_DEFAULT,
 })

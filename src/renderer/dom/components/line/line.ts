@@ -1,8 +1,6 @@
 import type { EnrichedLine } from '@gondola-lyrics/model/enriched'
-import type { RenderChanges } from '@root/renderer/common/types'
-import type { DomRendererConfigKeys, DomRendererConfigManager, DomRendererMode } from '@root/renderer/dom/config'
 import type { TimeCue } from '@root/renderer/dom/timeline'
-import type { LineInteractions } from './content'
+import type { ContentDisplay, LineInteractions } from './content'
 
 import { EnrichedLineType } from '@gondola-lyrics/model/enriched'
 
@@ -23,8 +21,7 @@ export class LineElement {
     document: Document,
     private readonly line: EnrichedLine,
     index: number,
-    config: DomRendererConfigManager,
-    mode: DomRendererMode,
+    display: ContentDisplay,
     interactions: LineInteractions,
   ) {
     this.element = document.createElement('div')
@@ -33,12 +30,12 @@ export class LineElement {
     this.element.dataset.lineIndex = String(index)
     this.element.dataset.type = line.type === EnrichedLineType.INSTRUMENTAL ? 'instrumental' : 'normal'
 
-    this.main = new LineContentElement(document, line, index, config, mode, interactions)
+    this.main = new LineContentElement(document, line, index, display, interactions)
     this.element.appendChild(this.main.element)
 
     if (line.type !== EnrichedLineType.INSTRUMENTAL) {
       for (const background of line.backgrounds) {
-        const content = new LineContentElement(document, background, index, config, mode, interactions, true)
+        const content = new LineContentElement(document, background, index, display, interactions, true)
         this.backgrounds.push(content)
         this.element.appendChild(content.element)
       }
@@ -47,13 +44,11 @@ export class LineElement {
 
   /**
    * Reports whether a content switch requires layout and time callbacks to be refreshed.
-   *
-   * Omitting changes applies configuration while preserving matching text representations.
    */
-  updateConfig(changes?: RenderChanges<DomRendererConfigKeys>): boolean {
-    let contentChanged = this.main.updateConfig(changes)
+  updateConfig(display: ContentDisplay): boolean {
+    let contentChanged = this.main.updateConfig(display)
     for (const background of this.backgrounds) {
-      const changed = background.updateConfig(changes)
+      const changed = background.updateConfig(display)
       contentChanged ||= changed
     }
 

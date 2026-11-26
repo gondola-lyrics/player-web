@@ -7,6 +7,7 @@ import type { ListModeConfigRequired } from './config'
 import { TimingLevel } from '@gondola-lyrics/model/common'
 
 import { buildClassName, buildLineVariableKey } from '@root/renderer/dom/css'
+import { resolveContentDisplay } from '@root/renderer/dom/components/line/content'
 import { LineElement } from '@root/renderer/dom/components/line/line'
 import { RenderTimeline } from '@root/renderer/dom/timeline'
 
@@ -26,7 +27,7 @@ export class ListMode implements RenderMode {
   private readonly timeline = new RenderTimeline()
   private fonts: FontFaceSet
   private lines: LineElement[] = []
-  private alignment?: ListModeConfigRequired['align']
+  private alignment?: ListModeConfigRequired['layout']['align']
   private styleInitialized = false
   private layoutDirty = true
   private isDisposed = false
@@ -64,8 +65,9 @@ export class ListMode implements RenderMode {
     }
 
     const { document, player, config, onLineClick, onLineContextMenu } = this.context
+    const display = resolveContentDisplay(config, 'list')
     this.lines = player.currentInfo.lines.map((line, index) => {
-      return new LineElement(document, line, index, config, 'list', {
+      return new LineElement(document, line, index, display, {
         click: onLineClick,
         contextMenu: onLineContextMenu,
       })
@@ -93,7 +95,7 @@ export class ListMode implements RenderMode {
   }
 
   private updateStyle(changes: RenderChanges<DomRendererConfigKeys>) {
-    if (this.styleInitialized && !changes.config.has('common.line') && !changes.config.has('modes.list.line')) {
+    if (this.styleInitialized && !changes.config.has('common.content.style') && !changes.config.has('modes.list.content.style')) {
       return
     }
 
@@ -110,9 +112,15 @@ export class ListMode implements RenderMode {
     let timeCuesChanged = changes.lyric
     if (changes.lyric) {
       this.rebuildLines()
-    } else if (changes.config.has('modes.list.word.enabled') || changes.config.has('common.word.enabled')) {
+    } else if (
+      changes.config.has('common.content.unit') ||
+      changes.config.has('modes.list.content.unit') ||
+      changes.config.has('common.content.word') ||
+      changes.config.has('modes.list.content.word')
+    ) {
+      const display = resolveContentDisplay(this.context.config, 'list')
       for (const line of this.lines) {
-        const changed = line.updateConfig(changes)
+        const changed = line.updateConfig(display)
         this.layoutDirty ||= changed
         timeCuesChanged ||= changed
       }
@@ -123,7 +131,7 @@ export class ListMode implements RenderMode {
     }
   }
 
-  private updateAlignment(align: ListModeConfigRequired['align']) {
+  private updateAlignment(align: ListModeConfigRequired['layout']['align']) {
     if (align === this.alignment) {
       return
     }
@@ -148,14 +156,13 @@ export class ListMode implements RenderMode {
 
   private updateLayout(changes: RenderChanges<DomRendererConfigKeys>, list: typeof DEFAULT, follow: boolean) {
     const height = this.element.clientHeight
-    const spacingChanged = changes.config.has('modes.list.gap') || changes.config.has('modes.list.align')
-    const layoutChanged = this.layoutDirty || changes.size || spacingChanged
+    const layoutChanged = this.layoutDirty || changes.size || changes.config.has('modes.list.layout')
     if (layoutChanged) {
       for (const line of this.lines) {
         line.measureWords()
       }
 
-      const gap = Number.isFinite(list.gap) ? Math.max(0, list.gap) : DEFAULT.gap
+      const gap = Number.isFinite(list.layout.gap) ? Math.max(0, list.layout.gap) : DEFAULT.layout.gap
       this.layout.measure(this.lines, gap)
       this.layoutDirty = height === 0
     }
@@ -188,8 +195,8 @@ export class ListMode implements RenderMode {
     }
 
     const activeIndex = follow ? (activeIndexes[0] ?? 0) : undefined
-    this.scroll.update(activeIndex, this.lines.length, list.scroll.resumeDelay)
-    this.updateAlignment(list.align)
+    this.scroll.update(activeIndex, this.lines.length, list.scroll.resume)
+    this.updateAlignment(list.layout.align)
     this.updateLineState(activeIndexes, currentIndexes)
     this.updateLayout(changes, list, follow)
   }

@@ -1,8 +1,9 @@
 import type { EnrichedLine, EnrichedLineBackground } from '@gondola-lyrics/model/enriched'
-import type { RenderChanges } from '@root/renderer/common/types'
-import type { DomRendererConfigKeys, DomRendererConfigManager, DomRendererMode } from '@root/renderer/dom/config'
+import type { WordEffects } from '@root/renderer/dom/components/word/config'
+import type { DomRendererConfigManager, DomRendererMode } from '@root/renderer/dom/config'
 import type { DomRendererEventMap } from '@root/renderer/dom/events'
 import type { TimeCue } from '@root/renderer/dom/timeline'
+import type { ContentUnit } from './config'
 
 import { isTimeInTimeRange } from '@gondola-lyrics/model/common'
 import { EnrichedLineType, getEnrichedLineContentText, hasEnrichedLineWords } from '@gondola-lyrics/model/enriched'
@@ -13,6 +14,25 @@ import { TimedWords } from '@root/renderer/dom/components/word/words'
 export interface LineInteractions {
   click: DomRendererEventMap['line-click']
   contextMenu: DomRendererEventMap['line-context-menu']
+}
+
+export interface ContentDisplay {
+  unit: ContentUnit
+  effects: WordEffects
+}
+
+/**
+ * Resolves content preferences once for all vocals in the mode.
+ */
+export const resolveContentDisplay = (config: DomRendererConfigManager, mode: DomRendererMode): ContentDisplay => {
+  return {
+    unit: config.resolve(`modes.${mode}.content.unit`, 'common.content.unit'),
+    effects: {
+      mask: config.resolve(`modes.${mode}.content.word.mask.enabled`, 'common.content.word.mask.enabled'),
+      float: config.resolve(`modes.${mode}.content.word.float.enabled`, 'common.content.word.float.enabled'),
+      emphasis: config.resolve(`modes.${mode}.content.word.emphasis.enabled`, 'common.content.word.emphasis.enabled'),
+    },
+  }
 }
 
 export class LineContentElement {
@@ -31,8 +51,7 @@ export class LineContentElement {
     document: Document,
     private readonly line: EnrichedLine | EnrichedLineBackground,
     private readonly index: number,
-    private readonly config: DomRendererConfigManager,
-    private readonly mode: DomRendererMode,
+    display: ContentDisplay,
     private readonly interactions: LineInteractions,
     private readonly background = false,
   ) {
@@ -59,7 +78,7 @@ export class LineContentElement {
       this.element.appendChild(this.text)
     }
 
-    this.updateConfig()
+    this.updateConfig(display)
     if (line.time) {
       this.cues.push({
         range: line.time,
@@ -73,28 +92,6 @@ export class LineContentElement {
 
     this.element.addEventListener('click', this.handleClick)
     this.element.addEventListener('contextmenu', this.handleContextMenu)
-  }
-
-  private updateWords(enabled: boolean): boolean {
-    if (!this.text) {
-      return false
-    }
-
-    const timed = enabled && hasEnrichedLineWords(this.line)
-    if (this.words !== undefined && timed === Boolean(this.words)) {
-      return false
-    }
-
-    this.words?.dispose()
-    this.text.className = buildClassName(timed ? 'syllable' : 'plain')
-    if (timed) {
-      this.words = new TimedWords(this.text, this.line.content!.words, this.line.time, this.background)
-    } else {
-      this.words = null
-      this.text.textContent = getEnrichedLineContentText(this.line.content)
-    }
-
-    return true
   }
 
   private syncState() {
@@ -140,15 +137,34 @@ export class LineContentElement {
   }
 
   /**
-   * Reports whether the effective word setting requires different text nodes and time callbacks.
+   * Preserves matching representations and reports changes to word geometry and time callbacks.
    */
-  updateConfig(changes?: RenderChanges<DomRendererConfigKeys>): boolean {
-    if (changes && !changes.config.has(`modes.${this.mode}.word.enabled`) && !changes.config.has('common.word.enabled')) {
+  updateConfig({ unit, effects }: ContentDisplay): boolean {
+    if (!this.text) {
       return false
     }
 
-    const enabled = this.config.resolve(`modes.${this.mode}.word.enabled`, 'common.word.enabled')
-    return this.updateWords(enabled)
+    if (unit === 'word' && hasEnrichedLineWords(this.line)) {
+      const previous = this.words?.effects
+      if (previous && previous.mask === effects.mask && previous.float === effects.float && previous.emphasis === effects.emphasis) {
+        return false
+      }
+
+      this.words?.dispose()
+      this.text.className = buildClassName('syllable')
+      this.words = new TimedWords(this.text, this.line.content!.words, this.line.time, this.background, effects)
+    } else {
+      if (this.words === null) {
+        return false
+      }
+
+      this.words?.dispose()
+      this.words = null
+      this.text.className = buildClassName('plain')
+      this.text.textContent = getEnrichedLineContentText(this.line.content)
+    }
+
+    return true
   }
 
   /**
