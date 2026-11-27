@@ -1,11 +1,8 @@
 import { resolve } from 'node:path'
+import { dts } from 'rolldown-plugin-dts'
 import { defineConfig } from 'vite'
 
-import dts from 'vite-plugin-dts'
-
-const root = import.meta.dirname
-const src = resolve(root, 'src')
-const out = resolve(root, 'dist')
+const src = resolve(import.meta.dirname, 'src')
 
 export default defineConfig({
   resolve: {
@@ -13,14 +10,10 @@ export default defineConfig({
       '@root': src,
     },
   },
-  plugins: [
-    dts({
-      tsconfigPath: resolve(root, 'tsconfig.json'),
-      include: ['src'],
-      bundleTypes: true,
-      outDirs: [{ dir: out }],
-    }),
-  ],
+  plugins: [dts({ sourcemap: true })],
+  oxc: {
+    exclude: [/\.js$/, /\.d\.[cm]?ts$/],
+  },
   build: {
     target: 'esnext',
     outDir: 'dist',
@@ -36,19 +29,11 @@ export default defineConfig({
       },
       formats: ['es'],
     },
-    rollupOptions: {
-      // Match entry paths so unrelated relative imports are not externalized.
-      external: (id) => {
-        return /^@gondola-lyrics\/model/.test(id) || id === resolve(src, 'core') || id === resolve(src, 'renderer')
-      },
-      preserveEntrySignatures: 'allow-extension',
+    rolldownOptions: {
+      external: /^@gondola-lyrics\/model(?:\/|$)/,
       output: {
         entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
-        paths: {
-          [resolve(src, 'core')]: './core.js',
-          [resolve(src, 'renderer')]: './renderer.js',
-        },
+        chunkFileNames: 'chunks/[name].js',
       },
     },
   },
