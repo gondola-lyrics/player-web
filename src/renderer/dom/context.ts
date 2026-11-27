@@ -1,4 +1,4 @@
-import type { RendererSource } from '@root/renderer/common/types'
+import type { CorePlayer } from '@root/core'
 import type { DomRendererConfigManager } from './config'
 import type { Container } from './container'
 import type { DomRendererEventMap } from './events'
@@ -11,7 +11,7 @@ export interface RenderContext {
   /**
    * Shared playback state. The lyric clock in milliseconds is `currentTime + currentOffset`.
    */
-  readonly player: RendererSource
+  readonly player: CorePlayer
   /**
    * Live renderer settings with per-field fallback from mode overrides to shared settings.
    */

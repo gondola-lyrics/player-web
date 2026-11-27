@@ -1,4 +1,4 @@
-import type { RendererSource } from '@root/renderer/common/types'
+import type { CorePlayer } from '@root/core'
 import type { DomRendererConfig, DomRendererConfigKeys, DomRendererConfigManager, DomRendererConfigRequired } from './config'
 import type { RenderContext } from './context'
 import type { DomRendererEventMap } from './events'
@@ -31,7 +31,7 @@ export class DomRenderer {
   private cancelTimeUpdate?: () => void
 
   constructor(
-    private readonly player: RendererSource,
+    private readonly player: CorePlayer,
     config?: DomRendererConfig,
   ) {
     this.config = new ConfigManager<DomRendererConfigRequired, DomRendererConfig>(DEFAULT, config)

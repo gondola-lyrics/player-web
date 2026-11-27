@@ -1,4 +1,5 @@
-import type { RenderChanges, RendererSource } from './types'
+import type { CorePlayer } from '@root/core'
+import type { RenderChanges } from './types'
 
 const RENDER_EVENTS = ['play', 'pause', 'active-lines-update', 'current-lines-update', 'offset-update'] as const
 
@@ -10,7 +11,7 @@ export class ChangeTracker<Key extends string> {
   private isDisposed = false
 
   constructor(
-    private readonly player: RendererSource,
+    private readonly player: CorePlayer,
     private readonly requestUpdate: () => void,
     private readonly onPlayerDispose: () => void,
   ) {

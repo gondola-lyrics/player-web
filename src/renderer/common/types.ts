@@ -1,11 +1,3 @@
-import type { CorePlayer } from '@root/core'
-
-export type RendererSource = Readonly<
-  Pick<CorePlayer, 'currentInfo' | 'currentTime' | 'currentOffset' | 'currentPlaying' | 'activeIndexes' | 'currentIndexes'>
-> & {
-  readonly event: Pick<CorePlayer['event'], 'add' | 'remove'>
-}
-
 export interface RenderChanges<Key extends string> {
   /**
    * Rebuilds lyric rows on the initial update or when the lyric is loaded again, including reuse of the same object.
