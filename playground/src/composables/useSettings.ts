@@ -1,5 +1,5 @@
 import type { CorePlayerConfig } from '@gondola-lyrics/player/core'
-import type { ContentConfig, DomRendererConfig, DomRendererConfigManager } from '@gondola-lyrics/player/renderer'
+import type { DomRenderer, DomRendererConfig } from '@gondola-lyrics/player/renderer'
 import type { usePlayer } from './usePlayer'
 
 import { onScopeDispose, ref, shallowRef } from 'vue'
@@ -12,17 +12,17 @@ export const RENDERER_PRESET: DomRendererConfig = {
 
 const SETTINGS_KEY = 'gondola-player-settings-v1'
 
-const readLegacyContent = (line: unknown, word?: unknown): ContentConfig => {
+const readLegacyContent = (line: unknown, word?: unknown) => {
   const appearance = readRecord(line)
   const enabled = readRecord(word).enabled ?? readRecord(appearance.words).enabled
   const unit = enabled ? 'word' : 'line'
   return {
     unit: typeof enabled === 'boolean' ? unit : undefined,
     style: { font: readRecord(appearance.font), states: readRecord(appearance.style) },
-  }
+  } as const
 }
 
-const restoreRendererConfig = (config: DomRendererConfigManager, saved: Record<string, unknown>) => {
+const restoreRendererConfig = (config: DomRenderer['config'], saved: Record<string, unknown>) => {
   const renderer = readRecord(saved.renderer)
   const common = readRecord(renderer.common)
   const list = readRecord(readRecord(renderer.modes).list)
