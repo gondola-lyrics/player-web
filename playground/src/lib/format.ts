@@ -1,5 +1,5 @@
 /**
- * Formats the millisecond clock shared by the controls and lyric player.
+ * Displays milliseconds as minutes and whole seconds, using `0:00` for invalid or negative input.
  */
 export const formatTime = (milliseconds: number): string => {
   const seconds = Math.floor(Math.max(0, Number.isFinite(milliseconds) ? milliseconds : 0) / 1000)

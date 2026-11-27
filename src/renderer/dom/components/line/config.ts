@@ -7,52 +7,71 @@ export type ContentUnit = 'line' | 'word'
 
 export interface LineStateStyle {
   /**
-   * Uses the source's line state, including when individual words have not started.
+   * CSS text color for this state, including timed words.
    *
    * @default 'currentColor'
    */
   color?: string
   /**
-   * Final text opacity from zero to one; zero is supported by plain text and timed masks.
+   * Text opacity from 0 to 1 for both plain text and timed masks.
    */
   opacity?: number
 }
 
 export interface ContentStyle {
+  /**
+   * Shared typography for main and background text.
+   */
   font?: {
     /**
-     * Main text size in pixels; backgrounds scale relative to it.
+     * Main text size in CSS pixels. Background vocals scale with it.
      *
      * @default 30
      */
     size?: number
     /**
-     * Empty values inherit the host's font family.
+     * CSS font family or list of families. An empty string inherits the host's font family.
+     *
+     * @default ''
      */
     family?: string
     /**
+     * Numeric CSS font weight.
+     *
      * @default 500
      */
     weight?: number
   }
   /**
-   * Main and background sources select their own state from these shared styles.
-   * Omitted fields retain that state's value; normal does not override the other states.
+   * Each source selects its own state. Omitted fields inherit the matching state's values.
    */
   states?: {
+    /**
+     * Base appearance for idle or untimed text, with a default opacity of 0.6.
+     */
     normal?: LineStateStyle
+    /**
+     * Appearance while a source is highlighted, with a default opacity of 1.
+     */
     active?: LineStateStyle
+    /**
+     * Appearance after a source finishes, with a default opacity of 0.4.
+     * During manual browsing, played text uses the normal style.
+     */
     played?: LineStateStyle
   }
 }
 
 export interface ContentConfig {
   /**
-   * Word display follows the source segments, including syllables, and falls back to whole-line text per vocal.
+   * Word display follows source segments, including syllables, and uses whole-line text for vocals without word data.
    *
    * @default 'word'
    */
   unit?: ContentUnit
+  /**
+   * Typography and playback-state appearance for lyric text.
+   */
   style?: ContentStyle
   /**
    * Effect preferences are retained when switching to whole-line display.

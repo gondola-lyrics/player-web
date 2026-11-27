@@ -3,11 +3,14 @@ const STORE = 'media'
 
 export interface StoredAudio {
   file: Blob
+  /**
+   * Original filename kept separately for display after a reload.
+   */
   name: string
 }
 
 /**
- * Treats unavailable or malformed browser storage as an absent preference.
+ * Reads a JSON preference, returning null for missing, inaccessible, or malformed data.
  */
 export const readStorage = (key: string): unknown => {
   try {
@@ -18,7 +21,7 @@ export const readStorage = (key: string): unknown => {
 }
 
 /**
- * Keeps storage failures separate from playback and returns whether persistence succeeded.
+ * Saves a JSON preference and returns false if serialization or storage throws.
  */
 export const writeStorage = (key: string, value: unknown): boolean => {
   try {
@@ -30,7 +33,7 @@ export const writeStorage = (key: string, value: unknown): boolean => {
 }
 
 /**
- * Rejects array and primitive storage payloads before individual fields are restored.
+ * Supplies an empty record for non-object values and arrays before restoring fields.
  */
 export const readRecord = (value: unknown): Record<string, unknown> => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -92,7 +95,7 @@ const transact = async <T>(mode: IDBTransactionMode, action: (store: IDBObjectSt
 }
 
 /**
- * Restores only local media blobs recorded by this playground.
+ * Restores the saved media record, returning null for missing or invalid data.
  */
 export const loadAudio = async (): Promise<StoredAudio | null> => {
   const value: unknown = await transact('readonly', (store) => {
@@ -104,7 +107,7 @@ export const loadAudio = async (): Promise<StoredAudio | null> => {
 }
 
 /**
- * Commits local audio replacement or removal before releasing the database connection.
+ * Waits for the saved audio change to commit. Pass null to remove the record.
  */
 export const saveAudio = async (audio: StoredAudio | null) => {
   if (audio) {

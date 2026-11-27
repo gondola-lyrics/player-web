@@ -43,7 +43,7 @@ export class LineElement {
   }
 
   /**
-   * Reports whether a content switch requires layout and time callbacks to be refreshed.
+   * Returns true when any source needs new measurements and time cues.
    */
   updateConfig(display: ContentDisplay): boolean {
     let contentChanged = this.main.updateConfig(display)
@@ -56,14 +56,14 @@ export class LineElement {
   }
 
   /**
-   * Includes background vocals even when their first word precedes the main line.
+   * Timeline entries for every source, including background vocals that start before the main line.
    */
   get timeCues(): TimeCue[] {
     return [...this.main.timeCues, ...this.backgrounds.flatMap((background) => background.timeCues)]
   }
 
   /**
-   * Applies display and original-time state equally during playback and paused seeks.
+   * Applies the list's row state and samples each source at the offset-adjusted lyric time in milliseconds.
    */
   updateState(active: boolean, current: boolean, lyricTime: number) {
     const played = !active && lyricTime >= (this.line.time?.end ?? Infinity)
@@ -87,13 +87,14 @@ export class LineElement {
     }
 
     this.main.updateState(active, lyricTime)
+    // Background vocals become active on their own timing even when their row is highlighted.
     for (const background of this.backgrounds) {
       background.updateState(false, lyricTime)
     }
   }
 
   /**
-   * Refreshes text masks independently of the row's scroll anchor.
+   * Refreshes the main and background masks after fonts or wrapping change.
    */
   measureWords() {
     this.main.measureWords()
@@ -103,16 +104,22 @@ export class LineElement {
   }
 
   /**
-   * Uses natural layout dimensions so visual transforms cannot move the scroll anchor.
+   * Measures in layout coordinates so animations preserve the row's scroll anchor.
    */
-  measure(): { height: number; anchorY: number } {
+  measure(): {
+    /**
+     * Full row height in CSS pixels, including background vocals.
+     */
+    height: number
+    /**
+     * Center of the main text or interlude in CSS pixels from the row's top edge.
+     */
+    anchorY: number
+  } {
     const { anchorY } = this.main.measure()
     return { height: this.element.offsetHeight, anchorY: this.main.element.offsetTop + anchorY }
   }
 
-  /**
-   * Releases the complete row while preserving the shared player and source lyric.
-   */
   dispose() {
     this.main.dispose()
     for (const background of this.backgrounds) {

@@ -1,54 +1,54 @@
 import type { ConfigManager, DeepRequired, NestedKeys } from '@root/utils'
 
 /**
- * Omitted fields inherit the player's defaults, including fields within offset.
+ * Partial overrides for playback, lyric offsets, and display matching.
  */
 export interface CorePlayerConfig {
   /**
-   * Select 'timer' where requestAnimationFrame is unavailable; it schedules ticks at 16 ms intervals.
+   * Use `'timer'` to schedule ticks with a 16 ms delay when animation frames are unavailable.
    *
    * @default 'animation'
    */
   driver?: 'animation' | 'timer'
   /**
-   * Offsets shift the comparison clock for both line sets without changing stored lyric timestamps.
+   * Controls the offset added to playback time when matching lyrics.
    */
   offset?: {
     /**
-     * Adds milliseconds to every lyric's clock; positive values advance lyric cues.
+     * Adjustment in milliseconds for every lyric, where positive values advance cues.
      *
      * @default 0
      */
     global?: number
     /**
-     * Includes the loaded lyric's metadata offset in the comparison clock.
+     * Includes the loaded lyric's metadata offset when matching lines.
      *
      * @default true
      */
     useMeta?: boolean
     /**
-     * Resets the temporary offset on updateLyric so per-song adjustments do not carry over.
+     * Clears the temporary offset on lyric replacement so adjustments stay scoped to one lyric.
      *
      * @default true
      */
     resetTempOnLyricChange?: boolean
   }
   /**
-   * Fills gaps between simultaneous display lines to keep one continuous highlighted block.
+   * Includes timed lines between the first and last active display lines to keep the highlight contiguous.
    *
    * @default true
    */
   bridgeActive?: boolean
   /**
-   * Groups consecutive display ends less than this many milliseconds apart to avoid successive scroll jumps.
-   * Zero disables merging; original lyric times remain unchanged.
+   * Groups adjacent display ends less than this many milliseconds apart so the lines leave together.
+   * Non-positive values disable merging.
    *
    * @default 300
    */
   mergeWindow?: number
   /**
-   * Caps each merge batch, counted backward from later lines, so a long run does not leave together.
-   * Zero or less removes the cap; one disables merging.
+   * Maximum lines in each merge group, counted from later lines toward earlier ones.
+   * Non-positive values allow unlimited group sizes, and one disables merging.
    *
    * @default 3
    */
@@ -56,7 +56,12 @@ export interface CorePlayerConfig {
 }
 
 export type CorePlayerConfigRequired = DeepRequired<CorePlayerConfig>
+
+/**
+ * Dot-separated paths for reading and updating player settings.
+ */
 export type CorePlayerConfigKeys = NestedKeys<CorePlayerConfig>
+
 export type CorePlayerConfigManager = ConfigManager<CorePlayerConfigRequired, CorePlayerConfig>
 
 export const DEFAULT: CorePlayerConfigRequired = Object.freeze({

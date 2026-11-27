@@ -14,7 +14,7 @@ export class UpdateScheduler {
   }
 
   /**
-   * Reads the latest state once the current event sequence has finished.
+   * Coalesces synchronous update requests into a single microtask.
    */
   request() {
     if (this.isDisposed || this.pending) {
@@ -26,7 +26,7 @@ export class UpdateScheduler {
   }
 
   /**
-   * Ignores queued and later work, so detached nodes are never updated.
+   * Stops updates, including work already queued in a microtask.
    */
   dispose() {
     this.isDisposed = true

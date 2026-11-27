@@ -1,11 +1,8 @@
 /**
- * Generates, extracts or rebuilds release notes from recorded commits and tags.
+ * Generates release notes from commits and tags.
  *
- * Usage:
- *   npm run build-change-log -- <version> [--dry-run]
- *   npm run build-change-log -- <version> --extract
- *   npm run build-change-log -- <version> --check-bump
- *   npm run build-change-log -- --rebuild
+ * `npm run build-change-log -- <version> [--dry-run | --extract | --check-bump]`
+ * `npm run build-change-log -- --rebuild`
  */
 
 import { execFileSync } from 'node:child_process'
@@ -18,14 +15,9 @@ import { PACKAGE_ROOT, REPO_ROOT, fail, isSemanticVersion } from './utils'
 
 const CHANGE_LOG_FILE = 'CHANGELOG.md'
 
-/**
- * The repository ships a single package, so tags carry no target prefix.
- */
 const TAG_PREFIX = 'v'
 
-/**
- * Playground changes are demo-only and stay out of release notes, whatever their type.
- */
+// Playground-only changes do not affect the published package.
 const EXCLUDED_SCOPES = new Set(['playground'])
 
 const TYPE_TITLES = new Map([
@@ -61,7 +53,7 @@ interface ChangelogArguments {
 
 const git = (...args: string[]): string => {
   try {
-    // stderr is captured rather than forwarded, so a failure surfaces once, in the message below.
+    // Capture stderr so each failure is reported once.
     return execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (error) {
     return fail(`git ${args.join(' ')} failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -105,9 +97,6 @@ const repoUrl = (): string | null => {
   return `https://github.com/${owner}/${name}`
 }
 
-/**
- * Finds the newest tag below the version being built, which bounds the commits the section covers.
- */
 const previousTag = (version: string): string | null => {
   if (!isSemanticVersion(version)) {
     return fail(`not a semantic version: ${version}`)
@@ -186,8 +175,7 @@ interface Entry {
 }
 
 /**
- * Related changes stay adjacent so readers can scan one area at a time.
- * Scope order follows first occurrence to keep the newest work first.
+ * Groups entries by scope and preserves their first-seen order to keep recent changes first.
  */
 const renderEntries = (entries: Entry[]): string[] => {
   const groups = new Map<string, string[]>()
@@ -250,7 +238,7 @@ const buildSection = (version: string, commits: Commit[], url: string | null, da
 }
 
 /**
- * Tags bound each release so rebuilding never pulls later work into published notes.
+ * Uses each release tag as the upper bound so rebuilt notes exclude later commits.
  */
 const rebuildChangelog = (existing: string | null, url: string | null): string => {
   if (existing === null) {
@@ -301,7 +289,7 @@ const extractSection = (text: string, version: string): string | null => {
 }
 
 /**
- * The first recorded release is the lower bound for the next version.
+ * Release sections are prepended, so the first heading is the latest recorded version.
  */
 const newestRelease = (text: string): string | null => {
   for (const line of text.split(/\r?\n/)) {
@@ -317,9 +305,6 @@ const newestRelease = (text: string): string | null => {
   return null
 }
 
-/**
- * A version that does not move forward would publish over a section already recorded.
- */
 const checkBump = (version: string, existing: string | null) => {
   const previous = existing === null ? null : newestRelease(existing)
   if (previous === null) {
@@ -387,12 +372,11 @@ const commandExtract = (version: string, recorded: string | null) => {
 }
 
 const commandBuild = (version: string, existing: string | null, recorded: string | null, preview: boolean) => {
-  // Writing a version twice would leave two sections, and extraction only ever reaches the first.
+  // Preview mode can render an existing version because it only writes to stdout.
   if (recorded !== null && !preview) {
     return fail(`${CHANGE_LOG_FILE} already has a section for v${version}`)
   }
 
-  // Previewing an existing release does not change the recorded version order.
   if (!preview) {
     checkBump(version, existing)
   }
@@ -424,7 +408,6 @@ const main = () => {
     case 'extract':
       return commandExtract(version, recorded)
     case 'check-bump':
-      // Release preparation checks ordering before changing the manifest.
       return checkBump(version, existing)
     case 'preview':
       return commandBuild(version, existing, recorded, true)

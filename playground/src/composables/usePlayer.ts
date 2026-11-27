@@ -17,7 +17,7 @@ import { useAudio } from './useAudio'
 const SOURCE_KEY = 'gondola-player-source-v1'
 
 /**
- * Coordinates the lyric clock with actual media events while retaining the last successfully parsed source.
+ * Synchronizes lyrics with media events and keeps the last successfully parsed lyric active.
  */
 export const usePlayer = () => {
   const media = useAudio()
@@ -74,9 +74,6 @@ export const usePlayer = () => {
     storageAvailable.value = stored && storageAvailable.value
   }
 
-  /**
-   * Leaves the active lyric untouched when parsing fails and resynchronizes successful changes to audio time.
-   */
   const applySource = (input: LyricSource, save = true): boolean => {
     if (disposed) {
       return false
@@ -117,9 +114,6 @@ export const usePlayer = () => {
     }
   }
 
-  /**
-   * Starts a preview transaction tied to the current audio and lyric revisions.
-   */
   const beginPreview = () => {
     if (!disposed && media.state.hasAudio) {
       previewRevision = revision
@@ -128,9 +122,6 @@ export const usePlayer = () => {
     }
   }
 
-  /**
-   * Positions the paused lyric clock without seeking the audio during a drag.
-   */
   const preview = (milliseconds: number) => {
     if (previewTime.value !== null && previewRevision === revision && Number.isFinite(milliseconds)) {
       previewTime.value = Math.min(media.state.duration, Math.max(0, milliseconds))
@@ -138,18 +129,12 @@ export const usePlayer = () => {
     }
   }
 
-  /**
-   * Cancels a drag without applying its position to media, including when the window loses its input stream.
-   */
   const cancelPreview = () => {
     previewTime.value = null
     previewRevision = -1
     synchronize()
   }
 
-  /**
-   * Commits only a still-current preview; an unmounted slider cannot seek a replacement source.
-   */
   const commitPreview = () => {
     if (disposed || previewTime.value === null || previewRevision !== revision) {
       return
@@ -163,9 +148,6 @@ export const usePlayer = () => {
     synchronize()
   }
 
-  /**
-   * Commits keyboard or line-click positioning immediately while preserving the media's playback state.
-   */
   const seek = (milliseconds: number) => {
     previewTime.value = null
     previewRevision = -1
@@ -174,9 +156,6 @@ export const usePlayer = () => {
     synchronize()
   }
 
-  /**
-   * Supersedes a pending slider drag before switching audio resources.
-   */
   const setAudioFile = async (file: File): Promise<boolean> => {
     revision++
     cancelPreview()
@@ -184,9 +163,6 @@ export const usePlayer = () => {
     return await media.setFile(file, file.name)
   }
 
-  /**
-   * Clears stored audio and ends any lyric preview of the removed file.
-   */
   const clearAudio = () => {
     revision++
     cancelPreview()
@@ -195,9 +171,6 @@ export const usePlayer = () => {
     synchronize()
   }
 
-  /**
-   * Retains audio playback while clearing the lyric and its persisted source.
-   */
   const clearLyric = () => {
     revision++
     cancelPreview()
@@ -262,24 +235,78 @@ export const usePlayer = () => {
     core,
     renderer,
     media,
+    /**
+     * Most recent input that produced a valid lyric, or null when none is applied.
+     */
     source,
+    /**
+     * Editable input that becomes active after a successful apply.
+     */
     draft,
     lyric,
+    /**
+     * Parser settings that trigger a fresh parse of the active source when changed.
+     */
     options,
+    /**
+     * Diagnostics from the latest completed parse, even if it produced an invalid lyric.
+     */
     diagnostics,
+    /**
+     * Message key for an apply failure, or an empty string when clear.
+     */
     error,
+    /**
+     * Exception details when parsing or applying the lyric throws.
+     */
     errorDetail,
+    /**
+     * Becomes false after a write of the lyric source or parser settings fails.
+     */
     storageAvailable,
+    /**
+     * Position displayed by the controls in milliseconds, using the preview while it is active.
+     */
     currentTime,
+    /**
+     * Pending seek position in milliseconds, or null when no preview is active.
+     */
     previewTime,
+    /**
+     * Applies and optionally saves valid input, keeping the active lyric when parsing fails.
+     */
     applySource,
+    /**
+     * Pauses the lyric clock and starts a preview for the current audio and lyric.
+     */
     beginPreview,
+    /**
+     * Updates the preview position in milliseconds while audio continues at its own position.
+     */
     preview,
+    /**
+     * Seeks the audio to the preview position if the audio and lyric are still current.
+     */
     commitPreview,
+    /**
+     * Discards the preview and resynchronizes the lyric clock with the audio.
+     */
     cancelPreview,
+    /**
+     * Seeks immediately to a position in milliseconds while preserving playback state.
+     */
     seek,
+    /**
+     * Cancels the current preview and returns whether the new audio file could be loaded.
+     */
     setAudioFile,
+    /**
+     * Removes the active audio and its saved copy and discards any preview.
+     */
     clearAudio,
+    /**
+     * Clears the active lyric and saved source while preserving audio playback.
+     */
     clearLyric,
   }
 }

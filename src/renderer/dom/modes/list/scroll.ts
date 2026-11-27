@@ -163,7 +163,8 @@ export class ListScroll {
   }
 
   /**
-   * Tracks the playback anchor while leaving a manual selection in place until it expires.
+   * Keeps the manual anchor during browsing and follows the active index otherwise.
+   * An undefined active index suspends automatic following.
    */
   update(activeIndex: number | undefined, lineCount: number, resume: typeof DEFAULT.scroll.resume) {
     this.syncDocument()
@@ -197,21 +198,19 @@ export class ListScroll {
   }
 
   /**
-   * Resolves the single index used to align the list.
+   * Zero-based row used as the viewport anchor.
    */
   get index(): number {
     return this.anchorIndex
   }
 
-  /**
-   * Lets layout pick the shorter manual transition.
-   */
   get isBrowsing(): boolean {
     return this.browsing
   }
 
   /**
-   * Ends a manual selection after recovery, seek, or lyric replacement.
+   * Ends manual browsing and cancels its resume timer.
+   * The default index is the current anchor.
    */
   reset(index = this.anchorIndex) {
     this.clearTimer()
@@ -221,9 +220,6 @@ export class ListScroll {
     this.element.removeAttribute('scrolling')
   }
 
-  /**
-   * Releases the timer and document listeners when the mode is disposed.
-   */
   dispose() {
     this.reset()
 

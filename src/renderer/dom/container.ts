@@ -38,9 +38,6 @@ export class Container {
   private styleDocument: Document | null = null
   private releaseStyles: (() => void) | null = null
 
-  /**
-   * Observes size and ancestry so paused renderers remain aligned when hosts move or change documents.
-   */
   constructor(private readonly onResize: () => void) {
     this.element = document.createElement('div')
     this.element.className = buildClassName('root')
@@ -55,6 +52,7 @@ export class Container {
     })
 
     this.mountObserver = new MutationObserver((records) => {
+      // A detached subtree can return to the same ancestry before the observer runs.
       const moved = records.some((record) => {
         return [...record.removedNodes].some((node) => node === this.element || this.ancestors.includes(node))
       })
@@ -68,7 +66,8 @@ export class Container {
   }
 
   /**
-   * Rebinds only when the ancestry changes; observing each parent also covers movement across shadow boundaries.
+   * Updates ancestry observers and shared styles when the viewport moves.
+   * Returns true when the ancestry, style root, or document owning the stylesheet changes.
    */
   sync(): boolean {
     const ancestors = collectAncestors(this.element)
@@ -96,17 +95,12 @@ export class Container {
   }
 
   /**
-   * Replaces the active mode's complete variable set without scheduling another update.
-   *
-   * Returns added, removed or changed declarations for the mode's layout decisions.
+   * Replaces the mode's complete set of CSS variables and returns added, changed, and removed keys.
    */
   updateStyle(variables: Readonly<Record<string, string>>): ReadonlySet<string> {
     return this.styles.update(variables)
   }
 
-  /**
-   * Stops observing and detaches the element from its host.
-   */
   dispose() {
     this.observer.disconnect()
     this.mountObserver.disconnect()

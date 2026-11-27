@@ -46,7 +46,8 @@ export class ChangeTracker<Key extends string> {
   }
 
   /**
-   * Adds changes without scheduling so the owner can include measurements taken during a flush.
+   * Records changes in the current batch so measurements taken during a flush can join it.
+   * The caller schedules updates separately.
    */
   mark(changes: Partial<RenderChanges<Key>>) {
     if (this.isDisposed) {
@@ -62,7 +63,7 @@ export class ChangeTracker<Key extends string> {
   }
 
   /**
-   * Detaches this batch before rendering so later changes cannot mutate its configuration keys.
+   * Returns the current batch and starts a new one for changes that arrive during rendering.
    */
   take(): RenderChanges<Key> {
     const changes: RenderChanges<Key> = {
@@ -81,7 +82,7 @@ export class ChangeTracker<Key extends string> {
   }
 
   /**
-   * Removes only this owner's subscriptions and ignores callbacks already captured by an emission.
+   * Removes the renderer's player subscriptions and ignores callbacks already captured by an emission.
    */
   dispose() {
     if (this.isDisposed) {

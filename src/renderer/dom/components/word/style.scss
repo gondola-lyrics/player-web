@@ -56,7 +56,7 @@
   }
 
   &[active] {
-    // A shared floor avoids division by zero while the mask preserves the final configured opacity.
+    // Normalize alpha against a nonzero opacity so the mask reproduces both configured opacities.
     $maximum: max(
       0.000001,
       #{build-line-variable('line-normal-main-syllable-opacity', 0.6)},

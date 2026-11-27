@@ -11,7 +11,13 @@ const EMPHASIZE_PADDING_VERTICAL = buildRootVariableKey('emphasize-padding-verti
 
 export class WordElement {
   readonly element: HTMLSpanElement
+  /**
+   * Stationary mask surface surrounding the moving text.
+   */
   readonly wipe: HTMLSpanElement
+  /**
+   * Text layer containing the full segment or individual graphemes for emphasis.
+   */
   readonly word: HTMLSpanElement
   readonly motion?: WordMotion
 
@@ -55,9 +61,6 @@ export class WordElement {
     }
   }
 
-  /**
-   * Cancels animation effects before the containing text is replaced.
-   */
   dispose() {
     this.motion?.dispose()
   }

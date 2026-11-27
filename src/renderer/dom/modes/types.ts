@@ -6,15 +6,16 @@ import type { DomRendererConfigKeys } from '@root/renderer/dom/config'
  */
 export interface RenderMode {
   /**
-   * Reads the latest player state; changes lists what happened since the previous update.
+   * Synchronizes the mode with the changed player, viewport, and configuration state.
    */
   update(changes: RenderChanges<DomRendererConfigKeys>): void
   /**
-   * Paints the lyric clock in milliseconds and returns the next lyric time requiring a repaint.
+   * Paints at the given lyric time in milliseconds and returns the next timestamp to repaint.
+   * Returning `lyricTime` requests a frame during playback, while `Infinity` leaves the mode idle.
    */
   updateTime(lyricTime: number): number
   /**
-   * Releases only the mode's own nodes, listeners and animations.
+   * Releases the mode's nodes, listeners, and animations from the shared viewport.
    */
   dispose(): void
 }

@@ -6,7 +6,7 @@ export type DeepRequired<T> = {
 }
 
 /**
- * Prevents edits to published configuration snapshots, including nested values.
+ * Types published configuration snapshots as read-only at every depth.
  */
 export type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T
 
@@ -34,7 +34,7 @@ export type NestedObjectKeys<T> = {
 }[keyof NonNullable<T> & string]
 
 /**
- * Resolves a path through optional sections while preserving the target field's input type.
+ * Resolves a path through optional sections while preserving the target field's declared type.
  */
 export type PathValue<T, Path extends string> = Path extends `${infer Key}.${infer Rest}`
   ? Key extends keyof NonNullable<T>

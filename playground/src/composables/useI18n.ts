@@ -9,7 +9,7 @@ import { ZH } from '../locales/zh-cn'
 export type Locale = 'zh-CN' | 'en-US'
 
 /**
- * Shares one locale between the playground copy and Naive UI's own translations.
+ * Keeps the playground labels, Naive UI translations, and document language in sync.
  */
 export const useI18n = () => {
   const saved = readStorage('gondola-player-locale-v1')
@@ -32,5 +32,14 @@ export const useI18n = () => {
     { immediate: true },
   )
 
-  return { locale, t }
+  return {
+    /**
+     * Active locale, persisted and applied to the document whenever it changes.
+     */
+    locale,
+    /**
+     * Translates a message and substitutes placeholders, using empty strings for missing values.
+     */
+    t,
+  }
 }

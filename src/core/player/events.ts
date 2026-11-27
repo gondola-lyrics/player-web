@@ -1,43 +1,47 @@
 import type { EnrichedLine, EnrichedLyric } from '@gondola-lyrics/model/enriched'
 
+/**
+ * Playback and lyric state notifications from the core player.
+ */
 export interface CorePlayerEventMap {
   /**
-   * Emitted after initial line synchronization when the lyric clock starts; time is in playback milliseconds.
+   * Emitted after initial line synchronization when playback starts, with the position in milliseconds.
    */
   play: (currentTime: number) => void
   /**
-   * Emitted on a transition from playing to paused, with the frozen playback time in milliseconds.
+   * Emitted when playback pauses, with the frozen position in milliseconds.
    */
   pause: (currentTime: number) => void
   /**
-   * Emitted after positioning by seek(time) or play(time), including moves within the same line.
-   * Both arguments use playback milliseconds; a newer seek or lyric replacement suppresses an obsolete notification.
+   * Emitted after `seek(time)` or `play(time)` positions the clock, including moves within a line.
+   * Both times are playback milliseconds.
+   * A newer seek or lyric replacement supersedes a pending notification.
    */
   seek: (currentTime: number, previousTime: number) => void
   /**
-   * Emitted after replacing the lyric and resetting the clock; rejected input is represented by an empty lyric.
+   * Reports the loaded lyric after the playback clock returns to zero, including an empty lyric for rejected input.
    */
   'lyric-update': (lyric: EnrichedLyric) => void
   /**
-   * Requests renderer synchronization after display changes or a full rematch, even if the set stays unchanged.
+   * Reports display lines after a change or a requested resynchronization.
    *
-   * Indexes refer to the loaded lyric; firstIndex is -1 for an empty set.
-   * isSeek also covers offset and configuration rematches.
+   * Indexes are zero-based and `firstIndex` is `-1` for an empty set.
+   * The `isSeek` flag also marks rematches caused by offset or configuration changes.
    */
   'active-lines-update': (lines: EnrichedLine[], indexes: number[], firstIndex: number, isSeek: boolean) => void
   /**
-   * Emitted when original-time matches change, independently of display holds, merging and bridging.
+   * Reports changes to matches in the original timing ranges at the offset-adjusted position.
    *
-   * Offsets apply to matching; indexes refer to the loaded lyric and firstIndex is -1 for an empty set.
+   * Indexes are zero-based and `firstIndex` is `-1` when no ranges match.
    */
   'current-lines-update': (lines: EnrichedLine[], indexes: number[], firstIndex: number) => void
   /**
-   * Emitted only when the combined offset changes during the player's lifetime, after line state is synchronized.
-   * Both values are milliseconds added to the playback clock.
+   * Emitted after line state synchronizes when the effective offset changes.
+   * Both offsets are in milliseconds.
    */
   'offset-update': (offset: number, previousOffset: number) => void
   /**
-   * Emitted once after state and pending ticks are cleared, while player listeners are still registered.
+   * Emitted once after playback state and pending ticks have been cleared.
    */
   dispose: () => void
 }

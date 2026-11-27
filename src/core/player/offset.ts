@@ -5,21 +5,18 @@ export class Offset {
   private metadata = 0
 
   /**
-   * Treats non-finite input as zero so it cannot invalidate later clock comparisons.
+   * Sets the temporary adjustment in milliseconds, treating non-finite input as zero.
    */
   setTemp(value: number) {
     this.temporary = Number.isFinite(value) ? value : 0
   }
 
-  /**
-   * Clears the per-song adjustment while preserving the loaded metadata offset.
-   */
   resetTemp() {
     this.temporary = 0
   }
 
   /**
-   * Re-reads the lyric offset when metadata use changes; missing or non-finite values contribute zero.
+   * Refreshes the metadata offset, using zero when disabled, absent, or non-finite.
    */
   refreshFromMeta(lyric: EnrichedLyric, enabled: boolean) {
     const value = enabled ? lyric.meta?.offset : undefined

@@ -1,8 +1,11 @@
+/**
+ * Dispatches typed events synchronously to registered listeners.
+ */
 export class Event<M extends { [K in keyof M]: (...args: never[]) => void }> {
   private listeners: { [K in keyof M]?: M[K][] } = {}
 
   /**
-   * Registers another subscription even when the same callback is already present.
+   * Registers a subscription each time, including repeated registrations of the same listener.
    */
   add<K extends keyof M>(event: K, listener: M[K]) {
     const callbacks = this.listeners[event] ?? (this.listeners[event] = [])
@@ -10,7 +13,7 @@ export class Event<M extends { [K in keyof M]: (...args: never[]) => void }> {
   }
 
   /**
-   * Removes only the first matching subscription; duplicates require separate removals.
+   * Removes the first matching subscription, so duplicates require separate removals.
    */
   remove<K extends keyof M>(event: K, listener: M[K]) {
     const callbacks = this.listeners[event]
@@ -25,8 +28,7 @@ export class Event<M extends { [K in keyof M]: (...args: never[]) => void }> {
   }
 
   /**
-   * Listener errors are logged and do not stop later callbacks.
-   * Subscription changes during dispatch affect subsequent emissions.
+   * Calls a snapshot of registered listeners in order and logs errors before continuing dispatch.
    */
   emit<K extends keyof M>(event: K, ...args: Parameters<M[K]>) {
     const callbacks = this.listeners[event]
@@ -45,7 +47,7 @@ export class Event<M extends { [K in keyof M]: (...args: never[]) => void }> {
   }
 
   /**
-   * Removes all subscriptions; listeners in an ongoing emission's snapshot still run.
+   * Clears all subscriptions for future emissions.
    */
   clear() {
     this.listeners = {}

@@ -8,24 +8,57 @@ const VOLUME_KEY = 'gondola-player-volume-v1'
 const LOAD_TIMEOUT = 20000
 
 /**
- * Owns media resources and publishes actual audio state instead of assuming a play request succeeds.
+ * Manages local audio resources and tracks browser media events for the player.
  */
 export const useAudio = () => {
   const saved = readRecord(readStorage(VOLUME_KEY))
   const element = shallowRef(new Audio())
   const state = reactive({
+    /**
+     * Display name of the active audio file, or an empty string when none is loaded.
+     */
     name: '',
+    /**
+     * Whether an audio file has loaded with a readable duration.
+     */
     hasAudio: false,
+    /**
+     * Whether metadata for an incoming audio file is still loading.
+     */
     loading: false,
+    /**
+     * Whether the playground is restoring audio from browser storage.
+     */
     restoring: false,
+    /**
+     * Remains true while the media is buffering after playback starts.
+     */
     playing: false,
+    /**
+     * Whether playback is waiting for enough media data to resume.
+     */
     waiting: false,
     seeking: false,
+    /**
+     * Current position of the media element in milliseconds.
+     */
     currentTime: 0,
+    /**
+     * Media duration in milliseconds, or zero when unavailable.
+     */
     duration: 0,
+    /**
+     * Volume from zero to one, independent of the mute toggle.
+     */
     volume: typeof saved.volume === 'number' && Number.isFinite(saved.volume) ? Math.min(1, Math.max(0, saved.volume)) : 0.8,
     muted: saved.muted === true,
+    /**
+     * Message key for the latest media failure, or an empty string when clear.
+     */
     error: '' as MessageKey | '',
+    /**
+     * Becomes false after an audio restore or a write to media or preference storage fails.
+     */
     storageAvailable: true,
   })
 
@@ -149,6 +182,7 @@ export const useAudio = () => {
     }
   }
 
+  // Serialize writes so a slow save cannot restore audio that was replaced or cleared.
   const queueSave = (audio: Parameters<typeof saveAudio>[0]) => {
     mediaWrites = mediaWrites.then(async () => {
       try {
@@ -228,9 +262,6 @@ export const useAudio = () => {
     bind(audio, true)
   }
 
-  /**
-   * Keeps the current media intact until replacement metadata is readable, and discards superseded loads.
-   */
   const setFile = async (file: Blob, name: string, persist = true): Promise<boolean> => {
     if (disposed) {
       return false
@@ -269,9 +300,6 @@ export const useAudio = () => {
     return true
   }
 
-  /**
-   * Resolves autoplay rejection without starting a lyric clock ahead of the media.
-   */
   const play = async () => {
     if (disposed || !state.hasAudio || state.loading) {
       return
@@ -291,18 +319,12 @@ export const useAudio = () => {
     }
   }
 
-  /**
-   * Invalidates a pending play request when the user pauses before it settles.
-   */
   const pause = () => {
     playRevision++
     element.value.pause()
     handlePause()
   }
 
-  /**
-   * Uses milliseconds at the public boundary and lets media seek events confirm the new position.
-   */
   const seek = (milliseconds: number) => {
     if (disposed || !state.hasAudio || !Number.isFinite(milliseconds)) {
       return
@@ -312,9 +334,6 @@ export const useAudio = () => {
     updateTime()
   }
 
-  /**
-   * Saves only finite volume preferences; muting retains the previous audible level.
-   */
   const setVolume = (value: number) => {
     if (disposed || !Number.isFinite(value)) {
       return
@@ -328,9 +347,6 @@ export const useAudio = () => {
     persistVolume()
   }
 
-  /**
-   * Restores an audible level even when the volume was explicitly reduced to zero.
-   */
   const toggleMute = () => {
     if (disposed) {
       return
@@ -347,9 +363,6 @@ export const useAudio = () => {
     persistVolume()
   }
 
-  /**
-   * Removes the active file and supersedes pending restoration or replacement work.
-   */
   const clear = () => {
     if (disposed) {
       return
@@ -406,5 +419,39 @@ export const useAudio = () => {
     release(element.value, objectUrl)
   })
 
-  return { element, state, setFile, play, pause, seek, setVolume, toggleMute, clear }
+  return {
+    /**
+     * Current media element, replaced once a new file has readable metadata.
+     */
+    element,
+    state,
+    /**
+     * Replaces audio after reading its metadata and returns whether the replacement succeeded.
+     */
+    setFile,
+    /**
+     * Requests playback and reports a rejection through the media error state.
+     */
+    play,
+    /**
+     * Pauses audio and invalidates any pending play request.
+     */
+    pause,
+    /**
+     * Seeks to the requested position in milliseconds, clamped to the media duration.
+     */
+    seek,
+    /**
+     * Clamps finite volume values to the 0–1 range and mutes at zero.
+     */
+    setVolume,
+    /**
+     * Toggles mute and restores the default volume when unmuting from zero.
+     */
+    toggleMute,
+    /**
+     * Removes active and saved audio and invalidates any pending load.
+     */
+    clear,
+  }
 }

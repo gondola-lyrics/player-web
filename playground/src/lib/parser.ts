@@ -19,15 +19,24 @@ import { readRecord } from './storage'
 export interface LyricSource {
   format: LyricFormat
   text: string
+  /**
+   * Display name of the imported file, or an empty string for pasted text.
+   */
   name: string
+  /**
+   * Separate translation track text for formats that support it.
+   */
   translations: string
+  /**
+   * Separate romanization track text for formats that support it.
+   */
   romans: string
 }
 
 export const LYRIC_FORMATS: readonly LyricFormat[] = ['lrc', 'qrc', 'yrc', 'krc', 'kwrc', 'ttml']
 
 /**
- * Restores older original-only inputs while retaining all supported format and annotation fields.
+ * Restores saved input, defaulting missing tracks to empty strings and unknown formats to LRC.
  */
 export const readLyricSource = (value?: unknown): LyricSource => {
   const saved = readRecord(value)
@@ -41,26 +50,47 @@ export const readLyricSource = (value?: unknown): LyricSource => {
 }
 
 /**
- * Only these parsers accept separate translation and romanization tracks.
+ * Returns whether the format accepts separate translation and romanization tracks.
  */
 export const hasAnnotationTracks = (format: LyricFormat): boolean => {
   return format === 'lrc' || format === 'qrc' || format === 'yrc'
 }
 
 export interface ParserOptions {
+  /**
+   * Fallback TTML language when the document omits `xml:lang`.
+   */
   language: string
+  /**
+   * Extracts background vocals from bracketed lyric text.
+   */
   extractBackgrounds: boolean
+  /**
+   * Removes brackets around background vocals after any extraction.
+   */
   stripBrackets: boolean
+  /**
+   * Fills missing spaces in lyric text while preserving the annotation tracks.
+   */
   insertSpaces: boolean
+  /**
+   * Controls insertion of instrumental lines into timed gaps.
+   */
   instrumental: {
     enabled: boolean
+    /**
+     * Minimum introductory gap in milliseconds.
+     */
     minIntroDuration: number
+    /**
+     * Minimum gap between lyric lines in milliseconds.
+     */
     minDuration: number
   }
 }
 
 /**
- * Restores parser preferences without allowing malformed saved sections to alter their shape.
+ * Restores parser preferences, using defaults for missing or invalid values.
  */
 export const readParserOptions = (value?: unknown): ParserOptions => {
   const saved = readRecord(value)
@@ -106,7 +136,7 @@ const parseOriginal = (source: LyricSource, options: ParserOptions): ParseResult
 }
 
 /**
- * Starts every processing pass from the source so disabling a transform removes its derived changes.
+ * Rebuilds lyrics from the original input so processing changes apply to a fresh parse.
  */
 export const parseSource = (source: LyricSource, options: ParserOptions): ParseResult => {
   const result = parseOriginal(source, options)

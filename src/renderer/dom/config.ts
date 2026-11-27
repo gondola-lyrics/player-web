@@ -9,24 +9,46 @@ export type DomRendererMode = 'list'
 
 export interface DomRendererConfig {
   /**
-   * Switching disposes the current mode and syncs the new one with the player's latest state.
+   * Selects the display mode. A switch replaces the mode and renders the current lyric.
    *
    * @default 'list'
    */
   mode?: DomRendererMode
   /**
-   * Modes inherit these values unless they explicitly override the corresponding field.
+   * Fallback settings shared by all display modes.
    */
   common?: {
+    /**
+     * Default text representation, appearance, and word effects for each mode.
+     */
     content?: ContentConfig
   }
+  /**
+   * Overrides organized by display mode.
+   */
   modes?: {
+    /**
+     * List layout, scrolling, and overrides for the shared content settings.
+     */
     list?: ListModeConfig
   }
 }
 
-export type DomRendererConfigRequired = DeepRequired<Omit<DomRendererConfig, 'modes'>> & { modes: { list: typeof LIST_DEFAULT } }
+export type DomRendererConfigRequired = DeepRequired<Omit<DomRendererConfig, 'modes'>> & {
+  /**
+   * Mode settings with layout and scrolling defaults applied.
+   */
+  modes: {
+    /**
+     * List settings whose content overrides still inherit from `common.content` field by field.
+     */
+    list: typeof LIST_DEFAULT
+  }
+}
 
+/**
+ * Dot-separated paths to renderer settings, including whole branches.
+ */
 export type DomRendererConfigKeys = NestedKeys<DomRendererConfig>
 export type DomRendererConfigManager = ConfigManager<DomRendererConfigRequired, DomRendererConfig>
 

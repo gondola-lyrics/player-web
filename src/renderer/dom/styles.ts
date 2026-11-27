@@ -13,7 +13,7 @@ const sheets = new WeakMap<Document, CSSStyleSheet>()
 const roots = new WeakMap<StyleRoot, { document: Document; sheet: CSSStyleSheet; users: number }>()
 
 /**
- * Shares one sheet per document without inline style elements, and releases only this root's final subscription.
+ * Shares a constructable stylesheet per document and returns a callback that releases this root's subscription.
  */
 export const createStyles = (root: StyleRoot): (() => void) => {
   const document = root.nodeType === 9 ? (root as Document) : root.ownerDocument!
@@ -70,9 +70,7 @@ export class RuntimeStyles {
   }
 
   /**
-   * Replaces the complete variable set, including removal of omitted declarations.
-   *
-   * Returns actual declaration changes so each mode can decide whether to measure again.
+   * Replaces the full variable set and reports which keys changed after CSS parsing.
    */
   update(variables: Readonly<Record<string, string>>): ReadonlySet<string> {
     const changed = new Set<string>()
@@ -103,9 +101,6 @@ export class RuntimeStyles {
     return changed
   }
 
-  /**
-   * Removes only this instance's runtime rules; shared structural styles are independently owned.
-   */
   dispose() {
     this.element.remove()
   }

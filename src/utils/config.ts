@@ -86,6 +86,7 @@ const merge = (current: unknown, patch: unknown, defaults: unknown, changes: Set
     const open = Object.keys(template).length === 0
     const previous = isRecord(current) ? current : {}
     let result = previous
+    // A reset also visits existing keys so it can clear fields absent from the defaults.
     const keys = replace ? new Set([...Object.keys(previous), ...Object.keys(template)]) : Object.keys(patch)
     for (const key of keys) {
       if (!isSafeKey(key) || (!open && !Object.hasOwn(template, key))) {
@@ -195,15 +196,18 @@ const isThenable = (value: unknown): boolean => {
 
 export interface ConfigManagerEventMap<Full, Keys> {
   /**
-   * Emitted only when values change; keys include changed descendants and their parent paths.
+   * Reports changed field paths and their ancestors with the updated snapshot.
    */
   update: (keys: Set<Keys>, config: Full) => void
   /**
-   * The optional path identifies a partial reset; this event also fires when no values change.
+   * Reports every valid reset, including partial resets and resets with no changed values.
    */
   reset: (config: Full, path?: Keys) => void
 }
 
+/**
+ * Provides relative access to a nested section of the shared configuration.
+ */
 export class ConfigScope<
   Full extends object,
   Init extends object,
@@ -220,11 +224,11 @@ export class ConfigScope<
   }
 
   /**
-   * Merges known fields into this section while preserving omitted values.
+   * Merges supplied values into this section while retaining omitted fields.
    */
   merge(patch: PathValue<Init, Path>): void
   /**
-   * Resolves the field relative to this section and uses the root merge rules.
+   * Merges a patch at a path relative to this section.
    */
   merge<Relative extends NestedKeys<PathValue<Full, Path>>>(relative: Relative, patch: PathValue<PathValue<Init, Path>, NoInfer<Relative>>): void
   merge(pathOrPatch: string | PathValue<Init, Path>, patch?: unknown) {
@@ -234,11 +238,11 @@ export class ConfigScope<
   }
 
   /**
-   * Edits a synchronous copy of this section; a failed callback publishes nothing.
+   * Passes a copy of this section to a synchronous edit callback and merges the result on success.
    */
   modify(edit: (config: NonNullable<PathValue<Full, Path>>) => void): void
   /**
-   * Copies only the relative object section before publishing the edit.
+   * Applies a synchronous edit to a copy of the object at the relative path.
    */
   modify<Relative extends NestedObjectKeys<PathValue<Full, Path>>>(
     relative: Relative,
@@ -256,7 +260,7 @@ export class ConfigScope<
   }
 
   /**
-   * Restores defaults while preserving siblings; fields without defaults are cleared.
+   * Restores defaults for this section or a relative path, clearing fields without defaults.
    */
   reset(relative?: NestedKeys<PathValue<Full, Path>>) {
     const path = relative === undefined ? this.path : `${this.path}.${relative}`
@@ -264,7 +268,7 @@ export class ConfigScope<
   }
 
   /**
-   * Binds a deeper object section using a path relative to this one.
+   * Opens a child object section with a path relative to this one.
    */
   scope<Relative extends NestedObjectKeys<PathValue<Full, Path>>>(relative: Relative) {
     const path = `${this.path}.${relative}` as Extract<`${Path}.${Relative}`, Keys & NestedObjectKeys<Full>>
@@ -272,16 +276,20 @@ export class ConfigScope<
   }
 
   /**
-   * Reads the latest frozen section, or undefined for an omitted optional section.
-   *
-   * Previously read snapshots remain unchanged.
+   * Latest frozen snapshot of this section, or `undefined` for an omitted optional section.
    */
   get current(): DeepReadonly<PathValue<Full, Path>> {
     return readPath(this.manager.current, this.parts) as DeepReadonly<PathValue<Full, Path>>
   }
 }
 
+/**
+ * Applies configuration patches against defaults and publishes frozen snapshots.
+ */
 export class ConfigManager<Full extends object, Init extends object, Keys extends string = NestedKeys<Full>> {
+  /**
+   * Subscriptions for settings changes and resets.
+   */
   readonly event = new Event<ConfigManagerEventMap<DeepReadonly<Full>, Keys>>()
 
   private readonly defaults: Full
@@ -329,14 +337,14 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Default fields retain their runtime types; empty default sections accept typed optional fields.
+   * Recursively merges objects, replaces arrays, and retains values for nullish fields.
    *
-   * Null and undefined preserve their previous values.
-   * Objects merge recursively, arrays replace as a whole, and equal updates emit nothing.
+   * Populated default objects constrain keys and value types. Empty default objects accept optional keys.
+   * Changes are published only when values differ.
    */
   merge(patch: Init): void
   /**
-   * Applies the merge rules directly to a field, preserving omitted fields in object patches.
+   * Applies the same merge rules to the value at the given path.
    */
   merge<Path extends Keys>(path: Path, patch: PathValue<Init, NoInfer<Path>>): void
   merge(pathOrPatch: string | Init, patch?: unknown) {
@@ -351,12 +359,12 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Publishes an edited copy after the synchronous callback succeeds.
-   * Throwing or returning a promise leaves state and listeners untouched.
+   * Merges an edited copy after the synchronous callback succeeds.
+   * A thrown error or a returned promise discards the draft.
    */
   modify(edit: (config: Full) => void): void
   /**
-   * Copies only the object at the path before publishing the edit.
+   * Applies a synchronous edit to a copy of the object at the given path.
    */
   modify<Path extends Keys & NestedObjectKeys<Full>>(path: Path, edit: (config: NonNullable<PathValue<Full, NoInfer<Path>>>) => void): void
   modify(pathOrEdit: string | ((config: never) => void), edit?: (config: never) => void) {
@@ -380,8 +388,8 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Restores library defaults and clears optional fields without defaults; constructor overrides are not reset targets.
-   * Emits update first when values change, then reset even when already at defaults.
+   * Restores the baseline defaults and clears fields absent from them.
+   * Emits `update` for changed values before emitting `reset`.
    */
   reset(path?: Keys) {
     const parts = path === undefined ? [] : this.resolvePath(path)
@@ -395,7 +403,7 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Binds a known object path, including omitted optional sections, without independent state or subscriptions.
+   * Opens an object section backed by this configuration, including omitted optional sections.
    */
   scope<Path extends Keys & NestedObjectKeys<Full>>(path: Path): ConfigScope<Full, Init, Path, Keys> {
     const parts = this.resolvePath(path)
@@ -408,7 +416,7 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Reads the first non-nullish value in priority order; objects and arrays are returned as stored snapshots.
+   * Reads the first non-nullish value in path order, or `undefined` when every candidate is absent.
    */
   resolve<const Paths extends readonly [Keys, ...Keys[]]>(
     ...paths: Paths
@@ -431,7 +439,7 @@ export class ConfigManager<Full extends object, Init extends object, Keys extend
   }
 
   /**
-   * Returns a frozen snapshot; use merge or modify to publish edits to subscribers.
+   * Current frozen snapshot, retained independently of later edits.
    */
   get current(): DeepReadonly<Full> {
     return this.value as DeepReadonly<Full>

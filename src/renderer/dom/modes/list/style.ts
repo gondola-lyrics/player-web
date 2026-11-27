@@ -25,7 +25,7 @@ const STYLE_VARIABLES = {
 export const LAYOUT_STYLE_KEYS = [FONT_SIZE, FONT_FAMILY, FONT_WEIGHT] as const
 
 /**
- * Resolves sparse list overrides into the complete inherited row style before measurement.
+ * Builds row CSS variables, resolving omitted list settings against the shared content style.
  */
 export const buildListStyle = (config: DomRendererConfigManager): Record<string, string> => {
   const size = config.resolve('modes.list.content.style.font.size', 'common.content.style.font.size')

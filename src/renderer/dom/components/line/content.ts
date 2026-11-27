@@ -17,12 +17,15 @@ export interface LineInteractions {
 }
 
 export interface ContentDisplay {
+  /**
+   * Preferred display unit, with whole-line text as the fallback for sources without word data.
+   */
   unit: ContentUnit
   effects: WordEffects
 }
 
 /**
- * Resolves content preferences once for all vocals in the mode.
+ * Resolves the mode's display settings with per-field fallbacks to the shared configuration.
  */
 export const resolveContentDisplay = (config: DomRendererConfigManager, mode: DomRendererMode): ContentDisplay => {
   return {
@@ -120,6 +123,7 @@ export class LineContentElement {
       return
     }
 
+    // Let users select lyric text without triggering the line's click action.
     const selection = this.element.ownerDocument.getSelection()
     if (event.detail > 0 && selection && !selection.isCollapsed) {
       for (let index = 0; index < selection.rangeCount; index++) {
@@ -137,7 +141,7 @@ export class LineContentElement {
   }
 
   /**
-   * Preserves matching representations and reports changes to word geometry and time callbacks.
+   * Returns true when the text representation or timed word effects were rebuilt.
    */
   updateConfig({ unit, effects }: ContentDisplay): boolean {
     if (!this.text) {
@@ -168,14 +172,14 @@ export class LineContentElement {
   }
 
   /**
-   * Schedules this source independently of the main lyric's start time.
+   * Timeline entries for the source's state and any timed word effects.
    */
   get timeCues(): TimeCue[] {
     return [...this.cues, ...(this.words?.cues ?? [])]
   }
 
   /**
-   * Combines list activation with this source's original time during playback and paused seeks.
+   * Combines list activation with the source's own timing using lyric time in milliseconds.
    */
   updateState(active: boolean, lyricTime: number) {
     this.active = active
@@ -183,24 +187,27 @@ export class LineContentElement {
     this.syncState()
   }
 
-  /**
-   * Refreshes masks after layout without changing playback or the containing row's position.
-   */
   measureWords() {
     this.words?.measure()
   }
 
   /**
-   * Uses natural text dimensions so word transforms cannot move the scroll anchor.
+   * Measures in layout coordinates so word effects preserve the scroll anchor.
    */
-  measure(): { height: number; anchorY: number } {
+  measure(): {
+    /**
+     * Untransformed height of the source element in CSS pixels.
+     */
+    height: number
+    /**
+     * Center of the text or interlude in CSS pixels from the source element's top edge.
+     */
+    anchorY: number
+  } {
     const anchorY = this.text ? this.text.offsetTop + this.text.offsetHeight / 2 : this.element.offsetHeight / 2
     return { height: this.element.offsetHeight, anchorY }
   }
 
-  /**
-   * Releases only this content's listeners and word effects, preserving the source lyric.
-   */
   dispose() {
     this.element.removeEventListener('click', this.handleClick)
     this.element.removeEventListener('contextmenu', this.handleContextMenu)

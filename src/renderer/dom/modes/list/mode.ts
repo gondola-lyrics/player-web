@@ -175,9 +175,6 @@ export class ListMode implements RenderMode {
     })
   }
 
-  /**
-   * Selects a visual anchor independently of which lyrics are active.
-   */
   update(changes: RenderChanges<DomRendererConfigKeys>) {
     if (this.isDisposed) {
       return
@@ -201,16 +198,10 @@ export class ListMode implements RenderMode {
     this.updateLayout(changes, list, follow)
   }
 
-  /**
-   * Paints timed text independently of list measurement and scroll following.
-   */
   updateTime(lyricTime: number): number {
     return this.timeline.updateTime(lyricTime)
   }
 
-  /**
-   * Detaches only this mode's nodes; the container is reused by the next mode.
-   */
   dispose() {
     this.isDisposed = true
     this.observer.disconnect()

@@ -13,7 +13,13 @@ import { Container } from './container'
 import { createMode } from './modes'
 
 export class DomRenderer {
+  /**
+   * Live settings for the viewport's display mode, content, and layout.
+   */
   readonly config: DomRendererConfigManager
+  /**
+   * Source interaction and disposal notifications for this viewport.
+   */
   readonly event = new Event<DomRendererEventMap>()
 
   private readonly container: Container
@@ -24,10 +30,6 @@ export class DomRenderer {
   private isDisposed = false
   private cancelTimeUpdate?: () => void
 
-  /**
-   * Renders the current lyric immediately; append element to a host that defines the viewport size.
-   * The player stays independently owned and can drive several renderers.
-   */
   constructor(
     private readonly player: RendererSource,
     config?: DomRendererConfig,
@@ -75,13 +77,13 @@ export class DomRenderer {
   }
 
   private handleConfigUpdate = (keys: Set<DomRendererConfigKeys>) => {
-    // An earlier listener in the same emission may already have disposed this renderer.
+    // Event dispatch may already have captured this listener when disposal runs.
     if (this.isDisposed) {
       return
     }
 
     if (keys.has('mode')) {
-      // Creating first keeps the current mode in place when the new one fails to construct.
+      // Construct first so a failed switch keeps the current mode mounted.
       const next = this.startMode()
       this.mode.dispose()
       this.mode = next
@@ -131,16 +133,16 @@ export class DomRenderer {
   }
 
   /**
-   * Returns the owned viewport; moving it between hosts keeps the player connection.
+   * Viewport to append to a host that supplies its dimensions.
+   * It can move between hosts while connected to the player.
    */
   get element(): HTMLDivElement {
     return this.container.element
   }
 
   /**
-   * Permanently detaches this renderer without pausing or disposing the shared player.
-   *
-   * Player disposal also triggers this cleanup; repeated calls emit no additional event.
+   * Releases the viewport, mode, and player subscriptions.
+   * Player disposal also triggers this cleanup, which emits `dispose` once.
    */
   dispose() {
     if (this.isDisposed) {

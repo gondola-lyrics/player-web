@@ -45,6 +45,7 @@ const navigate = async (event: KeyboardEvent, name: PanelTab) => {
 
   event.preventDefault()
   tab.value = TABS[target]!
+  // Wait for the roving tab index to update before moving focus.
   await nextTick()
   document.getElementById(`panel-tab-${tab.value}`)?.focus()
 }

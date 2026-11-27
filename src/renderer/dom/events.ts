@@ -2,11 +2,11 @@ import type { EnrichedLine, EnrichedLineBackground } from '@gondola-lyrics/model
 
 export interface DomRendererEventMap {
   /**
-   * Reports the clicked main or background source; index identifies its containing lyric line.
+   * Reports the clicked source, its containing row's zero-based index, and the original mouse event.
    */
   'line-click': (line: EnrichedLine | EnrichedLineBackground, index: number, event: MouseEvent) => void
   /**
-   * Reports the main or background source without taking over the browser's menu or playback.
+   * Reports the source, zero-based row index, and original event so listeners can cancel the browser menu.
    */
   'line-context-menu': (line: EnrichedLine | EnrichedLineBackground, index: number, event: MouseEvent) => void
   /**

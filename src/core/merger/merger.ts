@@ -9,7 +9,6 @@ export class CoreMerger {
     if (!time) {
       return 0
     }
-    // Keep the display anchored through gaps and after the final cue.
     if (index === this.lines.length - 1) {
       return Infinity
     }
@@ -17,7 +16,11 @@ export class CoreMerger {
   }
 
   /**
-   * Coalesces nearby display ends so clustered lines deactivate together without changing their original ranges.
+   * Holds lines through gaps and groups nearby display ends so clustered lines deactivate together.
+   *
+   * @param lines - Lyric lines ordered by start time.
+   * @param mergeWindow - Distance in milliseconds between adjacent display ends, exclusive.
+   * @param mergeLimit - Maximum lines per group, with a non-positive value allowing unlimited group sizes.
    */
   build(lines: EnrichedLine[], mergeWindow: number, mergeLimit: number) {
     this.lines = lines
@@ -45,7 +48,8 @@ export class CoreMerger {
   }
 
   /**
-   * Returns milliseconds, with Infinity for an open or final display end and zero for an unavailable index.
+   * Returns the display end in lyric milliseconds, or zero for a missing line.
+   * An open end or a timed final cue retains `Infinity`.
    */
   getMergedTime(index: number): number {
     return this.mergedEnd[index] ?? this.getRawTime(index)

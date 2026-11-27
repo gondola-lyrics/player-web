@@ -55,7 +55,7 @@ export class WordMotion {
     this.addCue(this.start, Math.min(this.blockEnd, entranceEnd))
     if (Number.isFinite(this.blockEnd)) {
       const atExit = this.blockEnd - range.start
-      // The word returns at normal speed while any unfinished character accents run to completion at four times speed.
+      // Reverse the lift at its entry speed and finish any remaining emphasis faster.
       const floatRelease = this.floatEnabled ? Math.min(this.duration, atExit) : 0
       const release = Math.max(floatRelease, (this.emphasisEnd - atExit) / RELEASE_RATE)
       this.addCue(this.blockEnd, this.blockEnd + release)
@@ -179,7 +179,7 @@ export class WordMotion {
   }
 
   /**
-   * Releases the character effects and the word's held lift when its text representation is replaced.
+   * Cancels native animations and clears the word's held lift.
    */
   dispose() {
     this.updateFloat(0)

@@ -42,7 +42,14 @@ const makeEmptyLyric = (): EnrichedLyric => {
 }
 
 export class CorePlayer {
+  /**
+   * Live settings for the playback clock and line matching.
+   */
   readonly config: CorePlayerConfigManager = new ConfigManager(DEFAULT)
+
+  /**
+   * Subscriptions for playback, lyric, and line state changes.
+   */
   readonly event = new Event<CorePlayerEventMap>()
 
   private isDisposed = false
@@ -179,7 +186,7 @@ export class CorePlayer {
 
     this.emitCurrentLinesUpdate()
 
-    // Reentrant listeners flush the latest state; do not retain an earlier line snapshot here.
+    // Read pending display state after dispatch because listeners can change it during notification.
     if (!this.isDisposed && this.activeLinesUpdatePending) {
       const needsResync = this.activeLinesNeedResync
       this.activeLinesUpdatePending = false
@@ -199,7 +206,7 @@ export class CorePlayer {
       return state
     }
 
-    // Start-sorted input lets the scan stop at the first future line without changing event indexes.
+    // Start-sorted input lets the scan skip future lines while retaining their source indexes.
     for (const [lineIndex, line] of this.lyric.lines.entries()) {
       if (!line.time) {
         continue
@@ -323,7 +330,7 @@ export class CorePlayer {
       return
     }
 
-    // Schedule first so a listener's pause, seek or disposal can cancel or replace the next tick.
+    // Schedule first so a listener can cancel or replace the next tick during dispatch.
     this.tickDriver.schedule(this.config.current.driver, this.handleTick)
     this.advanceLineState(this.lyricTime)
     this.flushStateEvents()
@@ -366,12 +373,12 @@ export class CorePlayer {
   }
 
   /**
-   * Replaces the lyric at playback time zero and leaves the player paused.
+   * Loads the lyric at playback time zero and pauses the clock.
    *
-   * @param lyric - Supply lines sorted by start time; their objects and indexes are retained.
+   * @param lyric - A lyric with timed lines ordered by start time.
    *
    * @remarks
-   * Invalid parse status, malformed versions or a different schema major load an empty lyric.
+   * Invalid lyrics and incompatible schema versions load an empty lyric.
    */
   updateLyric(lyric: EnrichedLyric) {
     if (this.isDisposed || !lyric) {
@@ -407,12 +414,13 @@ export class CorePlayer {
   }
 
   /**
-   * Starts from the stored position, optionally seeking before playback begins.
+   * Starts playback from the stored position or seeks to a supplied position first.
    *
-   * @param playbackTime - Use playback milliseconds without lyric offset; non-finite values keep the stored position.
+   * @param playbackTime - Position in playback milliseconds before offsets.
    *
    * @remarks
-   * Calling play on a running player pauses it before restarting.
+   * Non-finite values keep the stored position.
+   * A running clock pauses before restarting.
    */
   play(playbackTime?: number) {
     if (this.isDisposed) {
@@ -441,12 +449,9 @@ export class CorePlayer {
   }
 
   /**
-   * Repositions both line sets while preserving whether the clock is running.
+   * Moves the clock and rematches lines while preserving the playback state.
    *
-   * @param playbackTime - Use playback milliseconds without lyric offset; non-finite values are ignored.
-   *
-   * @remarks
-   * A completed request emits seek even when the target remains within the same line.
+   * @param playbackTime - Position in playback milliseconds before offsets. Non-finite values are ignored.
    */
   seek(playbackTime: number) {
     if (this.isDisposed || !Number.isFinite(playbackTime)) {
@@ -457,8 +462,7 @@ export class CorePlayer {
   }
 
   /**
-   * Freezes the clock and synchronizes both line sets to the frozen time.
-   * Repeated calls while paused do not emit another pause event.
+   * Freezes the running clock and synchronizes both line sets at the paused position.
    */
   pause() {
     if (this.isDisposed) {
@@ -469,9 +473,8 @@ export class CorePlayer {
   }
 
   /**
-   * Permanently releases player state; further playback commands have no effect.
-   *
-   * Emits dispose once after cleanup and before removing player listeners.
+   * Stops the clock, clears the loaded lyric, and removes subscriptions after emitting `dispose`.
+   * A running clock emits `pause` before `dispose`.
    */
   dispose() {
     if (this.isDisposed) {
@@ -501,9 +504,12 @@ export class CorePlayer {
   }
 
   /**
-   * Applies a temporary adjustment and immediately rematches both line sets, including while paused.
+   * Immediately rematches lines with a temporary adjustment, including while paused.
    *
-   * @param offset - Add these milliseconds to global and metadata offsets; non-finite values clear the temporary adjustment.
+   * @param offset - Milliseconds added to the global and metadata offsets.
+   *
+   * @remarks
+   * Non-finite values clear the temporary adjustment.
    */
   updateTempOffset(offset: number) {
     if (this.isDisposed) {
@@ -515,88 +521,95 @@ export class CorePlayer {
   }
 
   /**
-   * Queries display state without moving the clock or emitting events.
+   * Queries the display lines at a playback position.
    *
-   * @param playbackTime - Use playback milliseconds before the effective offset is applied.
+   * @param playbackTime - Position in milliseconds before the effective offset is applied.
    *
-   * @returns The result includes display holds, merging and bridging; untimed lyrics yield empty arrays.
+   * @returns Empty arrays for untimed lyrics or a non-finite offset-adjusted position.
    */
-  matchLinesWithTime(playbackTime: number): { lines: EnrichedLine[]; index: number[] } {
+  matchLinesWithTime(playbackTime: number): {
+    /**
+     * Display lines in lyric order, including held, merged, and bridged lines.
+     */
+    lines: EnrichedLine[]
+    /**
+     * Zero-based index in `currentInfo.lines` for each returned line.
+     */
+    index: number[]
+  } {
     const matches = this.matchLineState(playbackTime + this.currentOffset)
     const { lines, indexes } = this.bridgeActiveLines(matches.display)
     return { lines, index: indexes }
   }
 
   /**
-   * Converts a stored lyric timestamp to a seek target by removing the effective offset.
-   *
-   * @param contentTime - Use a timestamp from the lyric in milliseconds.
-   *
-   * @returns The playback timestamp may be negative when a positive offset advances the cue before time zero.
+   * Converts a lyric timestamp in milliseconds to a seek target by subtracting the effective offset.
+   * A positive offset can move the target before playback time zero.
    */
   convertContentTime(contentTime: number): number {
     return contentTime - this.currentOffset
   }
 
   /**
-   * Reflects the lyric clock only; audio playback is controlled by the caller.
+   * Whether the lyric clock is running, independent of the caller's audio state.
    */
   get currentPlaying(): boolean {
     return this.clock.running
   }
 
   /**
-   * Display policies can keep these lines highlighted after their original ranges end.
+   * Highlighted lines with display holds, merging, and bridging applied.
    */
   get activeLines(): EnrichedLine[] {
     return this.bridgeActiveLines(this.display).lines
   }
 
   /**
-   * Indexes refer to currentInfo.lines, including lines added by display bridging.
+   * Zero-based indexes in `currentInfo.lines` corresponding to `activeLines`.
    */
   get activeIndexes(): number[] {
     return this.bridgeActiveLines(this.display).indexes
   }
 
   /**
-   * Returns -1 when no display line is active.
+   * First active display index, or `-1` when the display set is empty.
    */
   get firstActiveIndex(): number {
     return this.display.indexes[0] ?? -1
   }
 
   /**
-   * Matches original [start, end) ranges at the last synchronization, with the effective offset applied.
-   * Unknown ends stay open; display holds, merging and bridging do not affect this set.
+   * Lines whose original `[start, end)` intervals matched the offset-adjusted clock at the last synchronization.
+   * Intervals with an unknown end stay open.
    */
   get currentLines(): EnrichedLine[] {
     return this.timeMatched.lines
   }
 
   /**
-   * Indexes refer to currentInfo.lines; overlapping ranges can produce several entries and gaps produce none.
+   * Zero-based indexes in `currentInfo.lines` corresponding to `currentLines`.
    */
   get currentIndexes(): number[] {
     return this.timeMatched.indexes
   }
 
   /**
-   * Returns -1 when no original range matches, even if a display line remains highlighted.
+   * First matching timing index, or `-1` when the original ranges contain no match.
    */
   get firstCurrentIndex(): number {
     return this.timeMatched.indexes[0] ?? -1
   }
 
   /**
-   * Accepted lyrics retain object identity; call updateLyric after edits to rebuild timing state.
+   * The loaded lyric retains its object identity.
+   * Call `updateLyric` after editing its timing to rebuild the line state.
    */
   get currentInfo(): EnrichedLyric {
     return this.lyric
   }
 
   /**
-   * Reports playback milliseconds without lyric offsets; paused clocks retain their position.
+   * Playback position in milliseconds before lyric offsets.
    */
   get currentTime(): number {
     const { running, position, startedAt } = this.clock
@@ -604,7 +617,8 @@ export class CorePlayer {
   }
 
   /**
-   * Adds global, metadata and temporary milliseconds; returns zero after disposal or for a non-finite total.
+   * Combined global, metadata, and temporary offset in milliseconds.
+   * A non-finite total or a disposed player yields zero.
    */
   get currentOffset(): number {
     return this.isDisposed ? 0 : this.offsetState.resolve(this.config.current.offset.global)

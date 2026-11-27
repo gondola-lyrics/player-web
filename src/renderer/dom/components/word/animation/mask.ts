@@ -9,8 +9,17 @@ const MASK_ACTIVE_OPACITY = `var(${buildRootVariableKey('mask-active-opacity')},
 const MASK_NORMAL_OPACITY = `var(${buildRootVariableKey('mask-normal-opacity')}, 1)`
 
 export interface MaskWord {
+  /**
+   * Stationary wrapper that receives the highlight mask.
+   */
   readonly wipe: HTMLElement
+  /**
+   * Text element measured in layout coordinates even while its glyphs animate.
+   */
   readonly word: HTMLElement
+  /**
+   * Source word timing in milliseconds on the lyric clock.
+   */
   readonly range: TimeRange
 }
 
@@ -136,6 +145,7 @@ const measureWord = ({ word, wipe }: MaskWord): MaskGeometry => {
   }
 
   const layers = buildMaskLayers(rows, width, height)
+  // Treat wrapped rows as one sweep so the highlight continues across line breaks.
   const virtualWidth = layers.reduce((sum, layer) => sum + layer.width, 0)
   return { width: virtualWidth, feather: (height / layers.length) * 0.5, layers }
 }
@@ -200,17 +210,18 @@ const paintWord = (part: MaskPart, cursor: number) => {
 }
 
 export class MaskAnimationHost {
+  /**
+   * Timeline entries for sweeping words and settling the mask at line boundaries.
+   */
   readonly cues: TimeCue[] = []
 
   private readonly groups: MaskGroup[] = []
 
-  /**
-   * Shares one feathered wipe across sequential words and gives overlapping voices their own cursor.
-   */
   constructor(words: readonly MaskWord[], lineTime?: TimeRange) {
     for (const word of words) {
       let group = this.groups.at(-1)
       const previous = group?.parts.at(-1)?.range
+      // Give overlapping words separate cursors so each highlight can start on time.
       if (!group || !previous || word.range.start < (previous.end ?? previous.start)) {
         group = { parts: [], index: 0, time: -Infinity }
         this.groups.push(group)
@@ -249,7 +260,7 @@ export class MaskAnimationHost {
   }
 
   /**
-   * Rebuilds word-width prefixes after layout and restores the last sampled clock, including during pauses.
+   * Rebuilds mask geometry and repaints at the last sampled time, including while paused.
    */
   measure() {
     for (const group of this.groups) {

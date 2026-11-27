@@ -1,9 +1,12 @@
 import type { TimeRange } from '@gondola-lyrics/model/common'
 
 export interface TimeCue {
+  /**
+   * Start and optional end on the offset-adjusted lyric clock in milliseconds.
+   */
   readonly range: TimeRange
   /**
-   * Returns true while the appearance changes between boundaries.
+   * Samples at the given lyric time and returns true while frame updates are needed between boundaries.
    */
   update: (lyricTime: number) => boolean
 }
@@ -14,7 +17,7 @@ export class RenderTimeline {
   private cursor = 0
 
   /**
-   * Reindexes mounted content in time order independently of its reading order.
+   * Indexes cue boundaries by time and samples every new cue on the next update.
    */
   replace(cues: readonly TimeCue[]) {
     this.boundaries.length = 0
@@ -34,8 +37,8 @@ export class RenderTimeline {
   }
 
   /**
-   * Repaints crossed boundaries in either direction and returns the next lyric time that needs painting.
-   * The current time requests a frame, while infinity leaves the renderer idle.
+   * Repaints crossed boundaries in either direction and returns the next lyric timestamp in milliseconds.
+   * Returning `lyricTime` requests a frame during playback, while `Infinity` leaves the timeline idle.
    */
   updateTime(lyricTime: number): number {
     while (this.cursor > 0 && this.boundaries[this.cursor - 1]!.at > lyricTime) {

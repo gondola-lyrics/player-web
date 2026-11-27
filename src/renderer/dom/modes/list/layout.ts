@@ -17,7 +17,13 @@ interface RowPosition {
 }
 
 interface PositionOptions {
+  /**
+   * Lets the playback anchor position the list beyond its edges.
+   */
   follow: boolean
+  /**
+   * Uses the shorter transition for a manual anchor when animations are enabled.
+   */
   browsing: boolean
   immediate: boolean
 }
@@ -48,7 +54,7 @@ export class ListLayout {
   }
 
   /**
-   * Accumulates natural row heights independently of their current translations.
+   * Measures natural row heights and anchors with the given gap in CSS pixels.
    */
   measure(lines: readonly LineElement[], gap: number) {
     let top = 0
@@ -64,7 +70,7 @@ export class ListLayout {
   }
 
   /**
-   * Applies the shared anchor offset to each row so CSS can retarget from its current pose.
+   * Aligns the selected row with the viewport anchor and clamps to the content edges with following disabled.
    */
   position(index: number, height: number, config: ListModeConfigRequired['scroll'], options: PositionOptions) {
     const row = this.rows[index]
@@ -88,9 +94,6 @@ export class ListLayout {
     }
   }
 
-  /**
-   * Releases the measured row references when the mode is disposed.
-   */
   clear() {
     this.rows = []
     this.height = 0

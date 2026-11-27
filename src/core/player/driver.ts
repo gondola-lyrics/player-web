@@ -5,7 +5,7 @@ export class Driver {
   private timerId: ReturnType<typeof globalThis.setTimeout> | null = null
 
   /**
-   * Replaces the pending tick so driver switches cannot leave two clocks running.
+   * Schedules the next tick, replacing any pending frame or timer.
    */
   schedule(driver: CorePlayerConfigRequired['driver'], callback: () => void) {
     this.cancel()
@@ -22,9 +22,6 @@ export class Driver {
     }
   }
 
-  /**
-   * Cancels outstanding work regardless of which driver scheduled it.
-   */
   cancel() {
     if (this.frameId !== null) {
       globalThis.cancelAnimationFrame(this.frameId)

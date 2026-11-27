@@ -20,6 +20,7 @@ const formatOptions = LYRIC_FORMATS.map((format) => {
   return { label: format.toUpperCase(), value: format }
 })
 
+// Invalidate pending file reads when the user applies, clears, or replaces the draft.
 let readRevision = 0
 
 const selectFormat = (value: LyricFormat) => {

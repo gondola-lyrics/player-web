@@ -2,6 +2,8 @@ import type { DeepRequired } from '@root/utils'
 
 interface WordEffectConfig {
   /**
+   * Applies this effect to timed segments in word display mode.
+   *
    * @default true
    */
   enabled?: boolean
@@ -13,7 +15,7 @@ export interface WordConfig {
    */
   mask?: WordEffectConfig
   /**
-   * Lifts the whole word during its time range.
+   * Raises the word as its timing progresses.
    */
   float?: WordEffectConfig
   /**

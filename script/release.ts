@@ -25,9 +25,6 @@ const run = (command: string, args: string[], cwd = PACKAGE_ROOT) => {
   }
 }
 
-/**
- * Runs one of the package's scripts through npm, so its runner is declared in one place only.
- */
 const runScript = (script: string, args: string[]) => {
   runNpm(['run', script, '--', ...args])
 }
@@ -42,7 +39,7 @@ const runGit = (args: string[]): string => {
 }
 
 /**
- * Publishing from a dirty tree ships files no commit records, leaving a tarball nobody can reproduce.
+ * Requires a clean tree so the release can be reproduced from a commit.
  */
 const checkWorktree = () => {
   const status = runGit(['status', '--porcelain'])
@@ -51,9 +48,6 @@ const checkWorktree = () => {
   }
 }
 
-/**
- * A placeholder or malformed version would publish under something no consumer can depend on.
- */
 const checkPackageVersion = (version: string) => {
   if (!isSemanticVersion(version)) {
     fail(`the package version ${JSON.stringify(version)} is not a semantic version`)
@@ -64,7 +58,7 @@ const checkPackageVersion = (version: string) => {
 }
 
 /**
- * Conditional exports may nest, so artifact checks must visit every target.
+ * Visits nested export conditions so every generated entry point can be checked.
  */
 const collectTargets = (node: unknown, targets: Set<string>) => {
   if (typeof node === 'string') {
@@ -80,9 +74,6 @@ const collectTargets = (node: unknown, targets: Set<string>) => {
   }
 }
 
-/**
- * Every path the manifest points consumers at has to exist, since `dist` is generated and never committed.
- */
 const checkArtifacts = (manifest: Manifest) => {
   const targets = new Set<string>()
   collectTargets(manifest.exports, targets)
@@ -103,9 +94,8 @@ const checkArtifacts = (manifest: Manifest) => {
 }
 
 /**
- * The CI guard keeps a stray local run from publishing; `--skip-check-ci` is the deliberate override.
- *
- * `--only-check` runs every check and the build, then stops before publishing.
+ * Local publishing requires `--skip-check-ci`.
+ * `--only-check` stops after verifying the build artifacts.
  */
 const commandPublish = (onlyCheck: boolean, skipCheckCi: boolean) => {
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Manifest
@@ -130,7 +120,6 @@ const commandPublish = (onlyCheck: boolean, skipCheckCi: boolean) => {
 
 /**
  * Records the version and changelog in the tagged commit so published artifacts remain reproducible.
- * Pushing stays a separate author action.
  */
 const commandBump = (version: string | undefined) => {
   if (version === undefined) {
@@ -148,16 +137,15 @@ const commandBump = (version: string | undefined) => {
     fail(`tag ${tag} already exists`)
   }
 
-  // The builder refuses to write a version twice, so its section is checked here to leave nothing half written.
+  // Reject duplicate sections up front to keep the version and changelog in sync.
   if (existsSync(CHANGE_LOG) && readFileSync(CHANGE_LOG, 'utf8').includes(`## v${version} (`)) {
     fail(`CHANGELOG.md already has a section for ${version}`)
   }
   checkWorktree()
 
-  // Validate release ordering before either version file is changed.
+  // Check release order before writing either version file.
   runScript('build-change-log', [version, '--check-bump'])
 
-  // One implementation of the version write, shared with the standalone bump script.
   runScript('bump-version', [version])
   runScript('build-change-log', [version])
 

@@ -11,7 +11,7 @@ export const LOCKFILE = resolve(PACKAGE_ROOT, 'package-lock.json')
 const SCRIPT_NAME = basename(process.argv[1] ?? 'script', '.ts')
 
 /**
- * Stops before later release steps can run with invalid input or incomplete state.
+ * Reports an error with the script name and exits with status 1.
  */
 export const fail: (reason: string) => never = (reason) => {
   console.error(`${SCRIPT_NAME}: ${reason}`)
@@ -19,7 +19,7 @@ export const fail: (reason: string) => never = (reason) => {
 }
 
 /**
- * Rejects normalized prefixes and whitespace so manifest versions and release tags stay aligned.
+ * Accepts canonical SemVer, including build metadata, so manifest versions match release tags.
  */
 export const isSemanticVersion = (version: string): boolean => {
   const parsed = parse(version)

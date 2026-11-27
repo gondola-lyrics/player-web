@@ -49,14 +49,14 @@ export class TimedWords {
   }
 
   /**
-   * Recomputes feather distances after the font or available width changes.
+   * Recomputes highlight geometry after the font or available width changes.
    */
   measure() {
     this.mask?.measure()
   }
 
   /**
-   * Releases native effects before switching representations or replacing the lyric.
+   * Cancels native animations before the caller replaces the text nodes.
    */
   dispose() {
     for (const word of this.words) {

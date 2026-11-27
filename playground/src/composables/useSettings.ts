@@ -29,7 +29,7 @@ const restoreRendererConfig = (config: DomRenderer['config'], saved: Record<stri
   const { resumeDelay } = readRecord(list.scroll)
   const { align, gap } = list
 
-  // Earlier playgrounds kept list preferences at the root, before the separate mode and common overrides.
+  // Apply legacy list preferences first so current settings can override them.
   config.merge('modes.list.content', readLegacyContent(renderer.line))
   config.merge({
     common: { content: readLegacyContent(common.line, common.word) },
@@ -79,7 +79,7 @@ const pickOverrides = (current: object, defaults: object): Record<string, unknow
 }
 
 /**
- * Persists configuration overrides separately from inherited appearance so reloads preserve mode preferences.
+ * Persists configuration overrides so inherited renderer styles can follow new defaults.
  */
 export const useSettings = (player: ReturnType<typeof usePlayer>) => {
   const { core, renderer } = player
@@ -128,9 +128,6 @@ export const useSettings = (player: ReturnType<typeof usePlayer>) => {
     }
   }
 
-  /**
-   * Resets the chosen scope in place and reapplies the playground's renderer preset.
-   */
   const reset = (scope: 'core' | 'renderer') => {
     if (scope === 'core') {
       core.config.reset()
@@ -144,9 +141,6 @@ export const useSettings = (player: ReturnType<typeof usePlayer>) => {
     persist()
   }
 
-  /**
-   * Keeps song-specific offset controls consistent with the player's reset policy.
-   */
   const setTemporaryOffset = (value: number) => {
     temporaryOffset.value = value
     core.updateTempOffset(value)
@@ -162,5 +156,21 @@ export const useSettings = (player: ReturnType<typeof usePlayer>) => {
     core.event.remove('lyric-update', handleLyric)
   })
 
-  return { coreConfig, rendererConfig, storageAvailable, temporaryOffset, reset, setTemporaryOffset }
+  return {
+    coreConfig,
+    rendererConfig,
+    /**
+     * Becomes false after a settings write fails.
+     */
+    storageAvailable,
+    /**
+     * Unsaved timing correction for the current lyric, in milliseconds.
+     */
+    temporaryOffset,
+    /**
+     * Restores defaults and clears the core's temporary offset or reapplies the renderer preset.
+     */
+    reset,
+    setTemporaryOffset,
+  }
 }

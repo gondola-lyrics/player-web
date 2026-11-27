@@ -25,9 +25,10 @@ const main = () => {
   lockfile.version = version
   lockfile.packages[''].version = version
 
-  // Only the version field is rewritten, so formatting elsewhere in the manifest survives untouched.
+  // Patch the version directly to preserve the manifest's formatting.
   writeFileSync(MANIFEST, text.replace(/("version":\s*)"[^"]*"/, `$1"${version}"`))
   writeFileSync(LOCKFILE, `${JSON.stringify(lockfile, null, 2)}\n`)
+
   console.log(`package.json and package-lock.json: ${version}`)
 }
 
